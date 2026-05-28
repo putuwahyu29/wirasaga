@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidICEContact(data) {
+      return data.name is string && data.name.size() >= 3 && data.name.size() <= 100
+             && data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 15
+             && data.type in ['Keluarga', 'Teman', 'Pasangan', 'Lainnya']
+             && data.userId is string && data.userId == request.auth.uid
+             && data.keys().hasAll(['name', 'phone', 'type', 'userId'])
+             && data.keys().size() <= 5;
+    }
+
+    // Hardened rules for incidents
+    match /incidents/{incidentId} {
+      allow read: if true;
+      allow create: if request.resource.data.id is string 
+                   && request.resource.data.lat is number
+                   && request.resource.data.lng is number
+                   && request.resource.data.tingkat_darurat is int
+                   && request.resource.data.ringkasan_masalah is string;
+      allow update: if request.resource.data.status in ['MENUNGGU', 'TERTANGANI', 'MENUJU_LOKASI'];
+      allow delete: if false; // Incidents cannot be deleted
+    }
+
+    // Hardened rules for users
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId);
+    }
+
+    // Hardened rules for ice_contacts
+    match /ice_contacts/{contactId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidICEContact(request.resource.data);
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,306 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-surface-bright: #f9f9f9;
+  --color-primary-fixed-dim: #ffb3ac;
+  --color-outline: #8f6f6c;
+  --color-on-primary: #ffffff;
+  --color-on-tertiary-fixed-variant: #930005;
+  --color-on-secondary: #ffffff;
+  --color-background: #f9f9f9;
+  --color-tertiary-container: #d52c23;
+  --color-on-secondary-fixed: #1d1b20;
+  --color-on-background: #1a1c1c;
+  --color-error-container: #ffdad6;
+  --color-primary: #af101a;
+  --color-surface-tint: #ba1a20;
+  --color-on-error-container: #93000a;
+  --color-on-surface-variant: #5b403d;
+  --color-tertiary-fixed-dim: #ffb4a9;
+  --color-on-surface: #1a1c1c;
+  --color-on-tertiary-fixed: #410001;
+  --color-tertiary-fixed: #ffdad5;
+  --color-inverse-surface: #2f3131;
+  --color-tertiary: #b10a0d;
+  --color-secondary-fixed: #e6e1e8;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-tertiary-container: #fff2f0;
+  --color-on-primary-fixed-variant: #930010;
+  --color-surface-container-low: #f3f3f3;
+  --color-secondary: #605d63;
+  --color-on-secondary-container: #656167;
+  --color-inverse-on-surface: #f1f1f1;
+  --color-surface-dim: #dadada;
+  --color-secondary-fixed-dim: #cac5cc;
+  --color-on-primary-container: #fff2f0;
+  --color-error: #ba1a1a;
+  --color-surface-variant: #e2e2e2;
+  --color-surface: #f9f9f9;
+  --color-inverse-primary: #ffb3ac;
+  --color-surface-container-highest: #e2e2e2;
+  --color-on-error: #ffffff;
+  --color-secondary-container: #e4dee5;
+  --color-on-primary-fixed: #410003;
+  --color-on-secondary-fixed-variant: #48464b;
+  --color-surface-container: #eeeeee;
+  --color-primary-container: #d32f2f;
+  --color-primary-fixed: #ffdad6;
+  --color-outline-variant: #e4beba;
+  --color-on-tertiary: #ffffff;
+  --color-surface-container-high: #e8e8e8;
+
+  --spacing-padding-container: 24px;
+  --spacing-margin-mobile: 16px;
+  --spacing-gutter-card: 12px;
+  --spacing-stack-gap-md: 16px;
+  --spacing-stack-gap-sm: 8px;
+  --spacing-base-unit: 4px;
+
+  --font-display-lg: "Roboto Flex";
+  --font-title-md: "Roboto Flex";
+  --font-label-lg: "Roboto Flex";
+  --font-title-lg: "Roboto Flex";
+  --font-headline-md: "Roboto Flex";
+  --font-body-lg: "Roboto Flex";
+  --font-headline-lg: "Roboto Flex";
+  --font-label-md: "Roboto Flex";
+  --font-body-md: "Roboto Flex";
+  --font-sans: "Roboto Flex", ui-sans-serif, system-ui, sans-serif;
+
+  --color-zinc-805: #1c1c1f;
+  --color-zinc-850: #1e1e21;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-background font-sans antialiased overflow-x-hidden w-full m-0 p-0;
+  }
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.4);
+  transform: scale(0);
+  animation: ripple 0.6s linear;
+  pointer-events: none;
+}
+
+@keyframes ripple {
+  to {
+      transform: scale(4);
+      opacity: 0;
+  }
+}
+
+.pulse-ring {
+  position: absolute;
+  border-radius: 50%;
+  background-color: rgba(175, 16, 26, 0.2);
+  animation: pulse 2s infinite ease-out;
+  z-index: 0;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none; 
+  scrollbar-width: none; 
+}
+
+.map-bg {
+    background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBMaGAjHJC9KIxyVQ1KTUwXYRj-CoFli8vwlzgokItkkd8daVZlMgn5-NFk23-hCDkpnuP75V-4BHQ7Unb3dQvIyZcrzK_PZn6TpGqwx4T8nmPfu1ZbMZKDAVv2DPN1f4jHnHADrSTBa0XknpO8uxFeADqJqrPKU2DRb78QlC6tWEXJEsypPxrh-llu8v7uxMQf4odco25q_taR85eYkfm7a1t5zcVJrLwy3Ius_NcQrmP2ovqFh2Tp4NPoMa4Cj40ox4KhXO7H_hPJ");
+    background-size: cover;
+    background-position: center;
+}
+
+@keyframes radar-pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    70% { transform: scale(3); opacity: 0; }
+    100% { transform: scale(3); opacity: 0; }
+}
+
+.radar-pulse-ring {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(175, 16, 26, 0.4);
+    animation: radar-pulse 2s infinite ease-out;
+    pointer-events: none;
+}
+
+/* Custom styles for Material 3 Outlined Text Field */
+.m3-text-field {
+    position: relative;
+}
+.m3-text-field input {
+    padding: 16px;
+    border-radius: 4px;
+    border: 1px solid var(--color-outline);
+    background: transparent;
+    color: var(--color-on-surface);
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s, border-width 0.2s;
+}
+.m3-text-field.with-icon input {
+    padding-left: 48px;
+}
+.m3-text-field input:focus {
+    border: 2px solid var(--color-primary);
+    padding: 15px; 
+}
+.m3-text-field.with-icon input:focus {
+    padding-left: 47px;
+}
+.m3-text-field label {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-on-surface-variant);
+    pointer-events: none;
+    transition: 0.2s ease all;
+    background-color: var(--color-background);
+    padding: 0 4px;
+    margin-left: -4px;
+}
+.m3-text-field.with-icon label {
+    left: 48px;
+}
+.m3-text-field input:focus ~ label,
+.m3-text-field input:not(:placeholder-shown) ~ label {
+    top: 0;
+    font-size: 12px; 
+    color: var(--color-primary);
+}
+.m3-text-field input:not(:placeholder-shown):not(:focus) ~ label {
+    color: var(--color-on-surface-variant);
+}
+.m3-text-field .leading-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-on-surface-variant);
+    pointer-events: none;
+}
+.m3-text-field input:focus ~ .leading-icon {
+    color: var(--color-primary);
+}
+
+@theme {
+  --font-sans: "Roboto Flex", ui-sans-serif, system-ui, sans-serif;
+
+  /* M3 Colors from provided design */
+  --color-primary: #af101a;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #d32f2f;
+  --color-on-primary-container: #fff2f0;
+  
+  --color-secondary: #605d63;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #e4dee5;
+  --color-on-secondary-container: #656167;
+
+  --color-tertiary: #b10a0d;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #d52c23;
+  --color-on-tertiary-container: #fff2f0;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --color-surface: #f9f9f9;
+  --color-on-surface: #1a1c1c;
+  --color-surface-variant: #e2e2e2;
+  --color-on-surface-variant: #5b403d;
+  --color-outline: #8f6f6c;
+  --color-outline-variant: #e4beba;
+
+  --color-background: #f9f9f9;
+  --color-on-background: #1a1c1c;
+
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f3f3;
+  --color-surface-container: #eeeeee;
+  --color-surface-container-high: #e8e8e8;
+  --color-surface-container-highest: #e2e2e2;
+}
+
+/* Dark theme CSS variable re-bindings */
+.dark {
+  --color-background: #09090b;
+  --color-on-background: #f4f4f5;
+  --color-surface: #09090b;
+  --color-on-surface: #f4f4f5;
+  --color-surface-variant: #18181b;
+  --color-on-surface-variant: #a1a1aa;
+  --color-outline: #52525b;
+  --color-outline-variant: #27272a;
+  --color-surface-container-lowest: #09090b;
+  --color-surface-container-low: #18181b;
+  --color-surface-container: #202023;
+  --color-surface-container-high: #27272a;
+  --color-surface-container-highest: #3f3f46;
+  --color-surface-bright: #18181b;
+}
+
+/* Material Symbols */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.material-symbols-outlined.filled { font-variation-settings: 'FILL' 1; }
+
+/* Custom pulsate keyframes and utilities */
+@keyframes pulsate {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.animate-radar-pulse {
+  animation: radar-pulsate 3s linear infinite;
+}
+
+@keyframes radar-pulsate {
+  0% { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulsate 2s infinite ease-out;
+}
+
+/* Accessibility */
+body.contrast-more {
+  filter: contrast(1.3) grayscale(0.1);
+}
+body.contrast-more * {
+  border-color: #000000 !important;
+}
+body.contrast-more .text-on-surface-variant {
+  color: #000000 !important;
+}
+body.contrast-more button {
+  border-width: 2px !important;
+  font-weight: 700 !important;
+}
+body.contrast-more input, body.contrast-more select {
+  border-width: 2px !important;
+  border-color: #000000 !important;
+}

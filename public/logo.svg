@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient: Rich Vivid Red to Deep Emergency Crimson -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EF4444" />
+      <stop offset="60%" stop-color="#DC2626" />
+      <stop offset="100%" stop-color="#991B1B" />
+    </linearGradient>
+
+    <!-- Metallic Shield Gradient: Gleaming Silver/Chrome -->
+    <linearGradient id="shieldGrad" x1="130" y1="120" x2="380" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="30%" stop-color="#F1F5F9" />
+      <stop offset="70%" stop-color="#CBD5E1" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+
+    <!-- Glowing Amber Accent Gradient -->
+    <linearGradient id="accentGrad" x1="200" y1="160" x2="312" y2="310" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#EAB308" />
+    </linearGradient>
+
+    <!-- Intense White Neon Filter -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Subtle Drop Shadow for elements -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#7F1D1D" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Base App Icon Outline with Squid/iOS Squircle curve -->
+  <!-- Fully self-contained container so it scales perfectly -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Radar Grid System (Visualizing "Radar Sekitar") -->
+  <g opacity="0.12">
+    <circle cx="256" cy="256" r="220" stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="10 6" />
+    <circle cx="256" cy="256" r="170" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="6 4" />
+    <circle cx="256" cy="256" r="110" stroke="#FFFFFF" stroke-width="1" />
+    <line x1="256" y1="36" x2="256" y2="476" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="8 8" />
+    <line x1="36" y1="256" x2="476" y2="256" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="8 8" />
+  </g>
+
+  <!-- Glowing background aura behind shield -->
+  <circle cx="256" cy="256" r="130" fill="#FFFFFF" opacity="0.08" filter="blur(20px)" />
+
+  <!-- Modern Guardian Shield Container with Drop Shadow -->
+  <g filter="url(#dropShadow)">
+    <!-- Base Silver Shield -->
+    <path d="M 256,110 
+             C 320,110 380,128 396,145 
+             C 396,260 350,345 256,412 
+             C 162,345 116,260 116,145 
+             C 132,128 192,110 256,110 Z" 
+          fill="url(#shieldGrad)" />
+          
+    <!-- Inner Red Shield Pocket for contrast -->
+    <path d="M 256,126 
+             C 308,126 358,141 378,155 
+             C 378,248 338,322 256,380 
+             C 174,322 134,248 134,155 
+             C 154,141 204,126 256,126 Z" 
+          fill="#991B1B" />
+  </g>
+
+  <!-- Stylized radar pulse "W" (Wirasaga) centered in the shield -->
+  <!-- Includes neon stroke filtering for a brilliant digital beacon look -->
+  <g filter="url(#neonGlow)">
+    <!-- Main pulse line forming a rugged W with localized ECG peak -->
+    <path d="M 175,215 
+             L 215,305 
+             L 242,210 
+             L 256,165 
+             L 270,210 
+             L 297,305 
+             L 337,215" 
+          fill="none" 
+          stroke="#FFFFFF" 
+          stroke-width="15" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+  </g>
+
+  <!-- Additional glowing telemetry points/crosshairs confirming AI Active status -->
+  <circle cx="256" cy="165" r="4" fill="#6EE7B7" filter="url(#neonGlow)" />
+  <circle cx="215" cy="305" r="4.5" fill="#6EE7B7" filter="url(#neonGlow)" />
+  <circle cx="297" cy="305" r="4.5" fill="#6EE7B7" filter="url(#neonGlow)" />
+</svg>

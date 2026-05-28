@@ -1,0 +1,6 @@
+{
+  "name": "Wirasaga",
+  "description": "Multi-modal AI emergency response radar with autonomous triage on Gemini 3.5 Flash.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

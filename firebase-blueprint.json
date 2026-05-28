@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "Incident": {
+      "title": "Incident",
+      "description": "Laporan darurat aktif di sekitar warga seluruh Indonesia",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID Unik Kejadian" },
+        "lat": { "type": "number", "description": "Koordinat Latitude Kejadian" },
+        "lng": { "type": "number", "description": "Koordinat Longitude Kejadian" },
+        "valid": { "type": "boolean", "description": "Validasi Status apakah ini Prank atau Valid" },
+        "kategori": { "type": "string", "enum": ["MEDIS", "MEKANIK", "KEAMANAN", "LINGKUNGAN"] },
+        "tingkat_darurat": { "type": "integer", "description": "Urgensi Tingkat Bahaya (1-10)" },
+        "ringkasan_masalah": { "type": "string", "description": "Ringkasan Hasil Analisis AI" },
+        "lokasi_deskripsi": { "type": "string", "description": "Informasi Alamat Lengkap" },
+        "rekomendasi_alat": { "type": "array", "description": "Daftar Alat Bantu Taktis" },
+        "radius_notifikasi_meter": { "type": "integer", "description": "Zonasi Radius Notifikasi Siaga" },
+        "timestamp": { "type": "string", "description": "Waktu Kejadian Laporan" },
+        "status": { "type": "string", "enum": ["MENUNGGU", "TERTANGANI", "MENUJU_LOKASI"] },
+        "reporter_name": { "type": "string", "description": "Nama Pelapor" },
+        "reporter_uid": { "type": "string", "description": "UID Pelapor dari Google Auth" }
+      },
+      "required": ["id", "lat", "lng", "kategori", "tingkat_darurat", "ringkasan_masalah", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Profil detail terautentikasi pengguna aplikasi Wirasaga",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "ID Unik Pengguna" },
+        "displayName": { "type": "string", "description": "Nama Pengguna" },
+        "email": { "type": "string", "description": "Alamat Email" },
+        "photoURL": { "type": "string", "description": "Gambar Profil Google" },
+        "lastLogin": { "type": "string", "description": "Terakhir Kali Masuk" },
+        "iceContacts": { "type": "array", "description": "Daftar kontak darurat pribadi (In Case of Emergency)" }
+      },
+      "required": ["uid", "displayName", "email"]
+    },
+    "ICEContact": {
+      "title": "ICEContact",
+      "description": "Kontak darurat personal pilihan pengguna",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Nama Kontak" },
+        "phone": { "type": "string", "description": "Nomor Telepon" },
+        "type": { "type": "string", "enum": ["Keluarga", "Teman", "Pasangan", "Lainnya"] },
+        "userId": { "type": "string", "description": "ID Pengguna Pemilik" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Waktu Pembuatan" }
+      },
+      "required": ["name", "phone", "type", "userId"]
+    }
+  },
+  "firestore": {
+    "/incidents/{incidentId}": {
+      "schema": "Incident",
+      "description": "Koleksi pusat laporan darurat dan bencana Nasional"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Koleksi profil data pengguna terautentikasi"
+    },
+    "/ice_contacts/{contactId}": {
+      "schema": "ICEContact",
+      "description": "Koleksi kontak darurat pribadi masing-masing pengguna"
+    }
+  }
+}
