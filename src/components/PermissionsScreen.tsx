@@ -29,6 +29,19 @@ export default function PermissionsScreen({ onAllGranted }: PermissionsScreenPro
         if ('Notification' in window && Notification.permission === 'granted') {
           setStatuses(s => ({ ...s, notifications: true }));
         }
+
+        // Camera & Microphone check via permissions query (supported in modern browsers)
+        if ('permissions' in navigator) {
+          try {
+            const camPerm = await navigator.permissions.query({ name: 'camera' as any });
+            const micPerm = await navigator.permissions.query({ name: 'microphone' as any });
+            if (camPerm.state === 'granted' || micPerm.state === 'granted') {
+              setStatuses(s => ({ ...s, cameraMic: true }));
+            }
+          } catch (err) {
+            console.log("Could not query camera or microphone permission state directly:", err);
+          }
+        }
       } catch (e) {
         console.error("Error checking permissions initially:", e);
       }
@@ -76,14 +89,25 @@ export default function PermissionsScreen({ onAllGranted }: PermissionsScreenPro
         if (perm === 'granted') {
           setStatuses(s => ({ ...s, notifications: true }));
         } else {
-          toast.error('Izin Notifikasi ditolak pengguna.');
-          allSuccess = false;
-          setLoading(false);
-          return;
+          // If in an iframe, browser blocks permission requests; let's allow proceeding with warning
+          if (window.self !== window.top) {
+            console.warn('Izin Notifikasi dialihkan karena berjalan di dalam sandboxed iframe.');
+            setStatuses(s => ({ ...s, notifications: true }));
+          } else {
+            toast.error('Izin Notifikasi ditolak pengguna.');
+            allSuccess = false;
+            setLoading(false);
+            return;
+          }
         }
       } catch (e) {
-        allSuccess = false;
+        console.warn('Notification permission bypass in Sandbox Iframe:', e);
+        // Fallback for iframe environments
+        setStatuses(s => ({ ...s, notifications: true }));
       }
+    } else {
+      // Notification is not supported on this device
+      setStatuses(s => ({ ...s, notifications: true }));
     }
 
     // 3. Camera & Microphone

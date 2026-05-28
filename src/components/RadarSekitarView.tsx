@@ -17,6 +17,25 @@ interface Incident {
   status?: string;
   reporter_uid?: string;
   reporterUid?: string;
+  rescuer?: {
+    name: string;
+    avatar?: string;
+    rating?: number;
+    distance_m?: number;
+    arrival_time_min?: number;
+  } | null;
+}
+
+interface RadarSekitarViewProps {
+  profile?: {
+    name: string;
+    avatar: string;
+    email?: string;
+    phone?: string;
+    bloodType?: string;
+    allergies?: string;
+    medicalHistory?: string;
+  };
 }
 
 const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
@@ -24,6 +43,9 @@ const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
 const playSiren = () => {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
     
@@ -42,7 +64,9 @@ const playSiren = () => {
     
     oscillator.start(audioCtx.currentTime);
     oscillator.stop(audioCtx.currentTime + 2.5);
-  } catch(e) {}
+  } catch(e) {
+    console.warn("Play Siren error:", e);
+  }
 };
 
 function Directions({ destination, origin, onRouteFound }: { destination: google.maps.LatLngLiteral, origin: google.maps.LatLngLiteral, onRouteFound?: (legs: any) => void }) {
@@ -83,7 +107,7 @@ function Directions({ destination, origin, onRouteFound }: { destination: google
     directionsService.route({
       origin: { lat: originLat, lng: originLng }, 
       destination: { lat: destLat, lng: destLng },
-      travelMode: google.maps.TravelMode.DRIVING
+      travelMode: 'DRIVING' as any
     }).then(response => {
       directionsRenderer.setDirections(response);
       if (onRouteFoundRef.current && response.routes && response.routes[0]) {
@@ -114,7 +138,7 @@ function Directions({ destination, origin, onRouteFound }: { destination: google
   return null;
 }
 
-export default function RadarSekitarView() {
+export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const prevIncidentsLength = useRef(0);
   const [selectedIncidentInfo, setSelectedIncidentInfo] = useState<any>(null);
@@ -219,11 +243,34 @@ export default function RadarSekitarView() {
           
           if (data.data.length > prevIncidentsLength.current && prevIncidentsLength.current > 0) {
             playSiren();
-            if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
+            
+            // Deliver robust system-level notification via Service Worker registration
+            let hasShownNotification = false;
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then((reg) => {
+                reg.showNotification('Darurat Baru!', {
+                  body: 'Seseorang di sekitar Anda membutuhkan bantuan!',
+                  icon: '/logo.svg',
+                  badge: '/logo.svg'
+                });
+                hasShownNotification = true;
+              }).catch(() => {
+                // Secondary fallback using classical window API
+                if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
+                  new window.Notification('Darurat Baru!', { body: 'Seseorang di sekitar Anda membutuhkan bantuan!' });
+                  hasShownNotification = true;
+                }
+              });
+            } else if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
               new window.Notification('Darurat Baru!', { body: 'Seseorang di sekitar Anda membutuhkan bantuan!' });
-            } else {
-              toast.error('Keadaan darurat baru terdeteksi di sekitar Anda!', { position: 'top-center', duration: 5000 });
+              hasShownNotification = true;
             }
+
+            // Always display a prominent, actionable layout toast to guarantee visibility
+            toast.error('Keadaan darurat baru terdeteksi di sekitar Anda!', { 
+              position: 'top-center', 
+              duration: 6000 
+            });
           }
           prevIncidentsLength.current = data.data.length;
         }
@@ -254,10 +301,25 @@ export default function RadarSekitarView() {
       const response = await fetch(`/api/incidents/${id}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rescuerName: 'Pengguna' })
+        body: JSON.stringify({ 
+          rescuerName: profile?.name || 'Pengguna',
+          rescuerAvatar: profile?.avatar || ''
+        })
       });
       if (response.ok) {
-        setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'MENUJU_LOKASI' } : inc));
+        setIncidents(prev => prev.map(inc => {
+          if (inc.id === id) {
+            return { 
+              ...inc, 
+              status: 'MENUJU_LOKASI',
+              rescuer: {
+                name: profile?.name || 'Pengguna',
+                avatar: profile?.avatar || ''
+              }
+            };
+          }
+          return inc;
+        }));
         
         // Find existing match info
         const matched = incidents.find(inc => inc.id === id);
@@ -303,6 +365,24 @@ export default function RadarSekitarView() {
 
   const radarItems = incidents.map(inc => {
     const style = getCategoryStyles(inc.kategori);
+    
+    // Shift static mock incidents to be near the user's real location so direction routes are valid and beautiful
+    let lat = inc.lat;
+    let lng = inc.lng;
+    
+    // Check if it's the static seed or extremely far from userLocation.
+    // If userLocation is somewhere else, and inc.lat/lng are Surabaya defaults, let's place them neatly near the user
+    const isMockSurabaya = Math.abs(inc.lat - (-7.2589)) < 0.05 && Math.abs(inc.lng - 112.7388) < 0.05;
+    if (isMockSurabaya && (inc.id === 'inc-1' || inc.id === 'inc-2')) {
+      if (inc.id === 'inc-1') {
+        lat = userLocation.lat + 0.005;
+        lng = userLocation.lng - 0.004;
+      } else {
+        lat = userLocation.lat - 0.003;
+        lng = userLocation.lng + 0.005;
+      }
+    }
+
     return {
       id: inc.id,
       name: inc.kategori,
@@ -314,11 +394,12 @@ export default function RadarSekitarView() {
       text: style.text,
       time: inc.timestamp,
       status: inc.status || 'MENUNGGU',
-      lat: inc.lat,
-      lng: inc.lng,
+      lat: lat,
+      lng: lng,
       ringkasan: inc.ringkasan_masalah,
       reporterName: inc.reporter_name || inc.reporterName || 'Warga',
-      reporterUid: inc.reporter_uid || inc.reporterUid
+      reporterUid: inc.reporter_uid || inc.reporterUid,
+      rescuer: inc.rescuer
     };
   });
 
@@ -799,7 +880,7 @@ export default function RadarSekitarView() {
                        <div className="flex items-center gap-2.5">
                          <div className="relative shrink-0">
                            <img 
-                             src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200" 
+                             src={item.rescuer?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"} 
                              alt="Rescuer Avatar" 
                              className="w-8 h-8 rounded-full object-cover border border-red-500" 
                              referrerPolicy="no-referrer"
@@ -809,7 +890,9 @@ export default function RadarSekitarView() {
                            </span>
                          </div>
                          <div>
-                           <p className="text-[11px] font-bold text-neutral-800 dark:text-white leading-tight">Budi Santoso (Relawan Responder)</p>
+                           <p className="text-[11px] font-bold text-neutral-800 dark:text-white leading-tight">
+                             {item.rescuer?.name || "Budi Santoso"} (Relawan Responder)
+                           </p>
                            <p className="text-[10px] text-neutral-500 dark:text-zinc-400 mt-0.5">Sedang Menuju ke Koordinat Anda</p>
                          </div>
                        </div>

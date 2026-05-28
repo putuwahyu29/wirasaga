@@ -20,8 +20,8 @@ service cloud.firestore {
              && data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 15
              && data.type in ['Keluarga', 'Teman', 'Pasangan', 'Lainnya']
              && data.userId is string && data.userId == request.auth.uid
-             && data.keys().hasAll(['name', 'phone', 'type', 'userId'])
-             && data.keys().size() <= 5;
+             && (data.createdAt == null || data.createdAt is timestamp)
+             && data.keys().size() <= 10;
     }
 
     // Hardened rules for incidents

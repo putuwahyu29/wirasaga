@@ -132,6 +132,45 @@ export default function SettingsView({
         </ul>
       </section>
 
+      {/* Informasi & Aplikasi Section */}
+      <section className="bg-surface-container-lowest dark:bg-zinc-900 rounded-[24px] p-0 shadow-[0_4px_16px_rgba(0,0,0,0.04)] overflow-hidden mt-stack-gap-md border border-outline-variant/30 dark:border-zinc-800 animate-fade-in">
+        <h3 className="text-title-md font-title-md text-on-background dark:text-zinc-100 px-padding-container pt-6 pb-2 font-sans font-bold">Informasi & Sinkronisasi</h3>
+        <ul className="flex flex-col flex-1">
+          <li>
+            <button 
+              onClick={() => {
+                window.dispatchEvent(new Event('trigger-pwa-install'));
+              }}
+              className="w-full flex items-center justify-between px-padding-container py-4 hover:bg-surface-container-low dark:hover:bg-zinc-800/80 transition-colors cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-red-500/10 dark:bg-red-500/20 flex items-center justify-center text-red-650 dark:text-red-400 border border-red-500/25">
+                  <span className="material-symbols-outlined">download</span>
+                </div>
+                <div>
+                  <span className="text-body-md font-extrabold text-on-background dark:text-zinc-200 block">Pasang Aplikasi PWA</span>
+                  <span className="text-[11px] font-semibold text-on-surface-variant dark:text-zinc-400">Gunakan Wirasaga langsung dari Beranda HP Anda</span>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-on-surface-variant dark:text-zinc-400">chevron_right</span>
+            </button>
+          </li>
+          <li className="border-t border-surface-variant/50 dark:border-zinc-800">
+            <div className="w-full flex items-center justify-between px-padding-container py-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-zinc-850 flex items-center justify-center text-on-surface-variant dark:text-zinc-300 border dark:border-zinc-700">
+                  <span className="material-symbols-outlined">info</span>
+                </div>
+                <div>
+                  <span className="text-body-md font-extrabold text-on-background dark:text-zinc-200 block">Versi Aplikasi</span>
+                  <span className="text-[11px] font-semibold text-on-surface-variant dark:text-zinc-400">v3.2.1-stable (Mendukung Siaga Offline)</span>
+                </div>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </section>
+
       {/* Keluar Section */}
       <section className="mt-stack-gap-md mb-8">
         <button onClick={() => setShowLogoutConfirm(true)} className="w-full bg-error-container dark:bg-red-500/10 text-on-error-container dark:text-red-400 hover:bg-error/20 dark:hover:bg-red-500/20 transition-colors py-4 rounded-xl text-title-md font-title-md flex items-center justify-center gap-2 cursor-pointer font-sans font-bold">

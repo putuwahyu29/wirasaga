@@ -14,21 +14,23 @@ export const messaging = typeof window !== 'undefined' && 'Notification' in wind
 export const requestForToken = async () => {
   if (!messaging) return null;
   try {
-    const currentToken = await getToken(messaging, { 
-      // VAPID key is usually required here, but we will use the default for now
-      // vapidKey: 'YOUR_VAPID_KEY'
-    });
+    const currentToken = await getToken(messaging);
     if (currentToken) {
-      console.log('FCM Token:', currentToken);
+      console.log('FCM Web Push Token:', currentToken);
       return currentToken;
     } else {
-      console.log('No registration token available. Request permission to generate one.');
+      console.log('No PWA token generated. Verify firebase-messaging-sw.js is accessible.');
       return null;
     }
   } catch (err) {
-    console.log('An error occurred while retrieving token. ', err);
+    console.warn('FCM registration skipped (Expected in sandboxed developer frames & iFrames):', err);
     return null;
   }
+};
+
+export const registerOnMessageListener = (callback: (payload: any) => void) => {
+  if (!messaging) return () => {};
+  return onMessage(messaging, callback);
 };
 
 export const onMessageListener = () =>

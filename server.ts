@@ -195,7 +195,7 @@ app.post("/api/incidents/reset", async (req, res) => {
 // API: Accept / dispatch volunteer to a specific incident
 app.post("/api/incidents/:id/accept", async (req, res) => {
   const { id } = req.params;
-  const { rescuerName } = req.body;
+  const { rescuerName, rescuerAvatar } = req.body;
   const incidentIdx = incidents.findIndex((item) => item.id === id);
 
   if (incidentIdx !== -1) {
@@ -204,7 +204,7 @@ app.post("/api/incidents/:id/accept", async (req, res) => {
       rating: 4.9,
       distance_m: 650,
       arrival_time_min: 2,
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"
+      avatar: rescuerAvatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"
     };
 
     incidents[incidentIdx].status = "MENUJU_LOKASI";

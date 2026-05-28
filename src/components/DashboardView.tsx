@@ -19,6 +19,103 @@ export default function DashboardView({ profile }: DashboardViewProps) {
 
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
 
+  // High quality local emergency siren feedback states
+  const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
+  const alarmAudioCtxRef = useRef<AudioContext | null>(null);
+  const alarmOscillatorRef1 = useRef<OscillatorNode | null>(null);
+  const alarmOscillatorRef2 = useRef<OscillatorNode | null>(null);
+  const alarmLfoRef = useRef<OscillatorNode | null>(null);
+  const alarmGainRef = useRef<GainNode | null>(null);
+
+  const startLocalAlarm = () => {
+    try {
+      if (isAlarmPlaying) return;
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      alarmAudioCtxRef.current = ctx;
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'sine';
+
+      // Setup swooping dual alarms
+      osc1.frequency.setValueAtTime(450, ctx.currentTime);
+      osc2.frequency.setValueAtTime(600, ctx.currentTime);
+
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 2.0; 
+      lfoGain.gain.value = 150;  
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc1.frequency);
+      lfoGain.connect(osc2.frequency);
+
+      gain.gain.setValueAtTime(0.12, ctx.currentTime); 
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start();
+      osc2.start();
+      lfo.start();
+
+      alarmOscillatorRef1.current = osc1;
+      alarmOscillatorRef2.current = osc2;
+      alarmLfoRef.current = lfo;
+      alarmGainRef.current = gain;
+      setIsAlarmPlaying(true);
+    } catch (err) {
+      console.error("Failed to play local SOS siren:", err);
+    }
+  };
+
+  const stopLocalAlarm = () => {
+    try {
+      if (alarmOscillatorRef1.current) {
+        alarmOscillatorRef1.current.stop();
+        alarmOscillatorRef1.current.disconnect();
+        alarmOscillatorRef1.current = null;
+      }
+      if (alarmOscillatorRef2.current) {
+        alarmOscillatorRef2.current.stop();
+        alarmOscillatorRef2.current.disconnect();
+        alarmOscillatorRef2.current = null;
+      }
+      if (alarmLfoRef.current) {
+        alarmLfoRef.current.stop();
+        alarmLfoRef.current.disconnect();
+        alarmLfoRef.current = null;
+      }
+      if (alarmGainRef.current) {
+        alarmGainRef.current.disconnect();
+        alarmGainRef.current = null;
+      }
+      if (alarmAudioCtxRef.current) {
+        alarmAudioCtxRef.current.close();
+        alarmAudioCtxRef.current = null;
+      }
+      setIsAlarmPlaying(false);
+    } catch (e) {
+      console.error("Failed to stop local SOS siren:", e);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      // Prevent sound leaks on unmount
+      if (alarmOscillatorRef1.current || alarmOscillatorRef2.current) {
+        try {
+          if (alarmOscillatorRef1.current) alarmOscillatorRef1.current.stop();
+          if (alarmOscillatorRef2.current) alarmOscillatorRef2.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
+
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
@@ -96,13 +193,20 @@ export default function DashboardView({ profile }: DashboardViewProps) {
       }
 
       setSosStatus('success');
+      startLocalAlarm();
       setTimeout(() => {
-        if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
-          new window.Notification('Peringatan Darurat', {
-            body: 'Laporan SOS terkirim. Smart Dispatcher (AI) sedang merespon.'
-          });
-        } else {
-          toast.success('Laporan SOS terkirim. Smart Dispatcher (AI) sedang merespon.', { position: 'top-center', duration: 4000 });
+        // Always show the beautiful in-app toast notification first to ensure perfect iframe presentation
+        toast.success('Laporan SOS terkirim. Smart Dispatcher (AI) sedang merespon.', { position: 'top-center', duration: 6000 });
+        
+        // Safely try native system push notifications (may blow up or be blocked inside iframe context)
+        try {
+          if ('Notification' in window && window.Notification && window.Notification.permission === 'granted') {
+            new window.Notification('Peringatan Darurat', {
+              body: 'Laporan SOS terkirim. Smart Dispatcher (AI) sedang merespon.'
+            });
+          }
+        } catch (pushErr) {
+          console.log("Native system notification dropped or blocked by sandboxed frame context:", pushErr);
         }
       }, 500);
     } catch (err) {
@@ -275,6 +379,43 @@ export default function DashboardView({ profile }: DashboardViewProps) {
         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
         <span className="text-label-md font-label-md text-on-surface-variant dark:text-zinc-400 uppercase tracking-wider">Lokasi GPS Aktif</span>
       </div>
+
+      {/* Visual Emergency Sirens Controls for Active SOS Status */}
+      {sosStatus === 'success' && (
+        <div className="w-full max-w-sm mt-4 bg-red-600/10 dark:bg-red-500/10 border-2 border-red-500/20 rounded-2xl p-4 text-center animate-pulse">
+          <p className="text-xs font-black text-red-600 dark:text-red-400 flex items-center justify-center gap-2 uppercase tracking-wide">
+            <span className="material-symbols-outlined text-[18px] animate-bounce">campaign</span>
+            Sirine Aktif di HP Anda
+          </p>
+          <p className="text-[10px] text-neutral-500 dark:text-zinc-450 mt-1 font-semibold">
+            Bunyi keras menyala untuk memanggil & membimbing tim penyelamat sekitar.
+          </p>
+          <div className="flex gap-2 mt-3 justify-center items-center">
+            <button
+              onClick={() => {
+                if (isAlarmPlaying) stopLocalAlarm();
+                else startLocalAlarm();
+              }}
+              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                isAlarmPlaying 
+                  ? 'bg-red-600 text-white hover:bg-red-700 shadow-sm' 
+                  : 'bg-neutral-105 hover:bg-neutral-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-neutral-700 dark:text-zinc-300'
+              }`}
+            >
+              {isAlarmPlaying ? 'Mute Sirine' : 'Bunyikan Sirine'}
+            </button>
+            <button
+              onClick={() => {
+                stopLocalAlarm();
+                setSosStatus('idle');
+              }}
+              className="px-3.5 py-2 bg-neutral-105 hover:bg-neutral-200 dark:bg-zinc-805 dark:hover:bg-zinc-700 text-neutral-700 dark:text-zinc-300 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Reset SOS / Selesai
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

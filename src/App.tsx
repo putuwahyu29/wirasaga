@@ -10,11 +10,77 @@ import ChatModal from './components/ChatModal';
 import LoginView from './components/LoginView';
 import PermissionsScreen from './components/PermissionsScreen';
 import ToolkitView from './components/ToolkitView';
-import { auth, logoutUser } from './firebase';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
+import { auth, logoutUser, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { requestForToken, onMessageListener } from './firebase';
+import { requestForToken, registerOnMessageListener } from './firebase';
+import { collection, doc, setDoc, query, onSnapshot } from 'firebase/firestore';
 
 import { Toaster, toast } from 'sonner';
+
+const playNotifyBeep = () => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Beep 1
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // Note A5
+    gain1.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain1.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.05);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.15);
+    osc1.start();
+    osc1.stop(audioCtx.currentTime + 0.18);
+
+    // Beep 2 (offset)
+    setTimeout(() => {
+      try {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.frequency.setValueAtTime(1174.66, audioCtx.currentTime); // Note D6
+        gain2.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain2.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.05);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.15);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.18);
+      } catch {}
+    }, 120);
+  } catch (error) {
+    console.log('Audio feedback skipped (User interaction needed first):', error);
+  }
+};
+
+const playNotifySiren = () => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    oscillator.type = 'sawtooth';
+    oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+    oscillator.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 0.5);
+    oscillator.frequency.linearRampToValueAtTime(440, audioCtx.currentTime + 1.0);
+    oscillator.frequency.linearRampToValueAtTime(880, audioCtx.currentTime + 1.5);
+    oscillator.frequency.linearRampToValueAtTime(440, audioCtx.currentTime + 2.0);
+    
+    gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.5);
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 2.6);
+  } catch (err) {
+    console.log("Audio notification siren skipped:", err);
+  }
+};
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'sos' | 'radar' | 'toolkit' | 'telepon' | 'pengaturan'>('sos');
@@ -24,7 +90,9 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
   const [highContrast, setHighContrast] = useState(false);
   const [largeText, setLargeText] = useState(false);
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [permissionsGranted, setPermissionsGranted] = useState<boolean>(() => {
+    return localStorage.getItem('wirasaga_permissions_handled') === 'true';
+  });
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -41,7 +109,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         setProfile(prev => ({
@@ -52,8 +120,24 @@ export default function App() {
         }));
         
         // FCM token request when user is logged in
+        let fcmToken: string | null = null;
         if (permissionsGranted) {
-            requestForToken();
+          fcmToken = await requestForToken();
+        }
+
+        // Register user profile & FCM token in Firestore users entry
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await setDoc(userDocRef, {
+            name: currentUser.displayName || "Aan Wijaya",
+            email: currentUser.email || "aan.wijaya@example.com",
+            photoURL: currentUser.photoURL || null,
+            fcmToken: fcmToken,
+            lastActive: new Date()
+          }, { merge: true });
+          console.log("Registered user & FCM token in Firestore entry successfully.");
+        } catch (dbErr) {
+          console.warn("Could not register user entry in Firestore:", dbErr);
         }
       }
       setAuthChecking(false);
@@ -64,12 +148,32 @@ export default function App() {
 
   useEffect(() => {
     if (permissionsGranted && user) {
-        onMessageListener().then((payload: any) => {
-            toast.info(payload?.notification?.title || 'Notifikasi Baru', {
-                description: payload?.notification?.body || 'Pesab masuk.',
-                position: 'top-center'
-            });
-        }).catch((err) => console.log('failed: ', err));
+      console.log('Registering continuous FCM foreground message listener...');
+      const unsubscribe = registerOnMessageListener((payload: any) => {
+        console.log('Foreground FCM Message received:', payload);
+        
+        // Play highly optimized, lightweight synthesized double-beep notification sound
+        playNotifyBeep();
+
+        // Show elegant high-contrast emergency-colored toast
+        toast.error(payload?.notification?.title || 'SIAGA DARURAT', {
+          description: payload?.notification?.body || 'Menerima koordinasi evakuasi & bencana baru.',
+          position: 'top-center',
+          duration: 6000,
+          action: {
+            label: 'LIHAT RADAR',
+            onClick: () => {
+              setCurrentView('radar');
+            }
+          }
+        });
+      });
+
+      return () => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      };
     }
   }, [permissionsGranted, user]);
 
@@ -92,6 +196,60 @@ export default function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Real-time global background incident scanner & siren alerts
+  useEffect(() => {
+    if (!user) return;
+    
+    console.log("Initializing real-time Firestore background incident listener...");
+    const q = query(collection(db, "incidents"));
+    let knownIncidentIds = new Set<string>();
+    let isFirstLoad = true;
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let playGlobalAlarm = false;
+      let alertItemData: any = null;
+      
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const docId = change.doc.id;
+          const data = change.doc.data();
+          
+          if (!isFirstLoad && !knownIncidentIds.has(docId)) {
+            // Trigger alert if it's not our own incident and the status is MENUNGGU
+            if (data.reporter_uid !== user.uid && data.status === 'MENUNGGU') {
+              playGlobalAlarm = true;
+              alertItemData = data;
+            }
+          }
+          knownIncidentIds.add(docId);
+        }
+      });
+      
+      isFirstLoad = false;
+      
+      if (playGlobalAlarm && alertItemData) {
+        console.log("ALERT! Real-time background incident detected:", alertItemData);
+        // Play the unmistakable emergency alert siren
+        playNotifySiren();
+        
+        // Show prominent Sonner action-toast globally
+        toast.error(`ALARM DARURAT: ${alertItemData.kategori}`, {
+          description: `Seseorang (${alertItemData.reporter_name || 'Korban'}) membutuhkan pertolongan segera: ${alertItemData.ringkasan_masalah || 'Segera berikan bantuan.'}`,
+          position: 'top-center',
+          duration: 9000,
+          action: {
+            label: 'BUKA RADAR',
+            onClick: () => {
+              setCurrentView('radar');
+            }
+          }
+        });
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [user]);
+
   if (authChecking) {
     return (
       <div className="bg-background min-h-screen flex items-center justify-center">
@@ -105,7 +263,14 @@ export default function App() {
   }
 
   if (!permissionsGranted) {
-    return <PermissionsScreen onAllGranted={() => setPermissionsGranted(true)} />;
+    return (
+      <PermissionsScreen 
+        onAllGranted={() => {
+          localStorage.setItem('wirasaga_permissions_handled', 'true');
+          setPermissionsGranted(true);
+        }} 
+      />
+    );
   }
 
   const handleLogout = async () => {
@@ -130,7 +295,7 @@ export default function App() {
       case 'sos':
         return <DashboardView profile={profile} />;
       case 'radar':
-        return <RadarSekitarView />;
+        return <RadarSekitarView profile={profile} />;
       case 'toolkit':
         return <ToolkitView />;
       case 'telepon':
@@ -155,7 +320,7 @@ export default function App() {
   return (
     <div className="bg-surface-dim dark:bg-zinc-900 min-h-screen flex justify-center w-full overflow-x-hidden">
       <div className="bg-background dark:bg-zinc-950 text-on-background dark:text-zinc-50 h-[100dvh] flex flex-col font-sans relative w-full md:max-w-2xl lg:max-w-4xl xl:max-w-6xl shadow-2xl overflow-hidden md:border-x md:border-surface-variant/30 dark:border-zinc-800 flex-1">
-        {!isEditingProfile && !isChatOpen && <Header avatar={profile.avatar} onProfileClick={() => { setIsEditingProfile(true); }} />}
+        {!isEditingProfile && !isChatOpen && <Header avatar={profile.avatar} onProfileClick={() => { setCurrentView('pengaturan'); }} />}
         
         <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar relative w-full">
           {renderView()}
@@ -185,6 +350,7 @@ export default function App() {
           </div>
         )}
         <Toaster />
+        <PWAInstallPrompt />
       </div>
     </div>
   );
