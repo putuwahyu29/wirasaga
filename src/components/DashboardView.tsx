@@ -5,9 +5,10 @@ import { collection, addDoc } from 'firebase/firestore';
 
 interface DashboardViewProps {
   profile?: any;
+  user?: any;
 }
 
-export default function DashboardView({ profile }: DashboardViewProps) {
+export default function DashboardView({ profile, user }: DashboardViewProps) {
   const [isPressing, setIsPressing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [sosStatus, setSosStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -117,6 +118,97 @@ export default function DashboardView({ profile }: DashboardViewProps) {
   }, []);
 
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [latestUnresolvedIncident, setLatestUnresolvedIncident] = useState<any | null>(null);
+  const [justFinishedId, setJustFinishedId] = useState<string | null>(null);
+
+  // Style helper matching the system design token
+  const getCategoryStyles = (category: string) => {
+    const formatted = (category || '').toUpperCase();
+    if (formatted.includes('MEDI')) {
+      return { icon: 'medical_services', bg: 'bg-error-container', color: 'text-error', text: 'text-on-error-container', hex: '#BA1A1A' };
+    } else if (formatted.includes('POLI') || formatted.includes('AMAN') || formatted.includes('KEAMANAN')) {
+      return { icon: 'local_police', bg: 'bg-tertiary-fixed', color: 'text-tertiary', text: 'text-on-tertiary-fixed', hex: '#204E5F' };
+    } else if (formatted.includes('MEKANIK') || formatted.includes('MOTOR') || formatted.includes('MOBIL') || formatted.includes('TEKNIS')) {
+      return { icon: 'car_repair', bg: 'bg-surface-variant', color: 'text-on-surface', text: 'text-on-surface-variant', hex: '#44474E' };
+    }
+    return { icon: 'warning', bg: 'bg-primary-container', color: 'text-primary', text: 'text-on-primary-container', hex: '#AF101A' };
+  };
+
+  const fetchUnresolvedIncident = async () => {
+    try {
+      const res = await fetch('/api/incidents');
+      const data = await res.json();
+      if (data.status === 'success' && data.data) {
+        // Sort incidents descending order by date or ID so we get the newest one first
+        const sortedIncidents = [...data.data].sort((a: any, b: any) => {
+          const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+          const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+          return tB - tA;
+        });
+
+        const currentUid = user?.uid || auth.currentUser?.uid;
+        
+        // 1. Only find the user's own unresolved reports
+        let found = sortedIncidents.find((inc: any) => 
+          (inc.reporter_uid === currentUid || inc.reporterUid === currentUid) && 
+          inc.status !== 'TERTANGANI'
+        );
+
+        // 1.5. Check if user just marked their own report as resolved, hold on to it instead of dropping
+        if (!found && justFinishedId) {
+          found = sortedIncidents.find((inc: any) => 
+            inc.id === justFinishedId && 
+            (inc.reporter_uid === currentUid || inc.reporterUid === currentUid)
+          );
+        }
+
+        setLatestUnresolvedIncident(found || null);
+      }
+    } catch (err) {
+      console.error("Gagal memuat laporan terbaru:", err);
+    }
+  };
+
+  const handleResolveIncident = async (id: string) => {
+    try {
+      const res = await fetch(`/api/incidents/${id}/finish`, { method: 'POST' });
+      if (res.ok) {
+        toast.success("Laporan berhasil diselesaikan!");
+        setJustFinishedId(id);
+        fetchUnresolvedIncident();
+      } else {
+        toast.error("Gagal menyelesaikan laporan.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal terhubung ke server.");
+    }
+  };
+
+  const handleAcceptCommunityIncident = async (id: string) => {
+    try {
+      const response = await fetch(`/api/incidents/${id}/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ val: '1' })
+      });
+      if (response.ok) {
+        toast.success("Respon penanganan berhasil dikirim! Silakan bersiap menuju lokasi.");
+        fetchUnresolvedIncident();
+      } else {
+        toast.error("Gagal menerima penanganan insiden.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal terhubung ke server.");
+    }
+  };
+
+  useEffect(() => {
+    fetchUnresolvedIncident();
+    const interval = setInterval(fetchUnresolvedIncident, 8000);
+    return () => clearInterval(interval);
+  }, [user, justFinishedId]);
 
   useEffect(() => {
     // Get real GPS
@@ -215,6 +307,7 @@ export default function DashboardView({ profile }: DashboardViewProps) {
       toast.error('Gagal mengirim sinyal darurat (AI API Gagal)!', { position: 'top-center' });
     } finally {
       setIsSending(false);
+      fetchUnresolvedIncident();
     }
   };
 
@@ -416,6 +509,282 @@ export default function DashboardView({ profile }: DashboardViewProps) {
           </div>
         </div>
       )}
+
+      {/* 1 Latest Unresolved Emergency Incident Card */}
+      {latestUnresolvedIncident && (() => {
+        const currentUid = user?.uid || auth.currentUser?.uid;
+        const isMyReport = (latestUnresolvedIncident.reporter_uid === currentUid || latestUnresolvedIncident.reporterUid === currentUid);
+        const styles = getCategoryStyles(latestUnresolvedIncident.kategori || latestUnresolvedIncident.category);
+        const isFinished = latestUnresolvedIncident.status === 'TERTANGANI';
+
+        if (isMyReport) {
+          // PREMIUM "Laporan Saya" style matching the Radar page exactly
+          return (
+            <div 
+              className={`w-full max-w-sm mt-5 bg-gradient-to-br p-5 rounded-2xl border-2 flex flex-col gap-4 transition-all relative overflow-hidden text-left ${
+                isFinished 
+                  ? 'from-green-55 to-white dark:from-zinc-900/90 dark:to-zinc-950 shadow-[0_8px_30px_rgba(34,197,94,0.08)] border-green-500/30 dark:border-green-500/20' 
+                  : 'from-rose-55 to-white dark:from-zinc-900/90 dark:to-zinc-950 shadow-[0_8px_30px_rgba(239,68,68,0.08)] border-red-500/30 dark:border-red-500/20'
+              }`}
+            >
+              {/* Top Animated Pulse Indicator line */}
+              <div className={`absolute top-0 left-0 w-full h-1.5 animate-pulse ${
+                isFinished 
+                  ? 'bg-gradient-to-r from-green-600 via-emerald-500 to-green-600' 
+                  : 'bg-gradient-to-r from-red-600 via-amber-500 to-red-600'
+              }`} />
+              
+              {/* Unique Identifier Header */}
+              <div className="flex items-center justify-between mt-1">
+                <span className={`flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm ${
+                  isFinished ? 'bg-green-600 text-white' : 'bg-[#BA1A20] text-white'
+                }`}>
+                  <span className="material-symbols-outlined text-[12px] animate-bounce-short">
+                    {isFinished ? 'verified' : 'notifications_active'}
+                  </span>
+                  {isFinished ? "Laporan Selesai Ditangani" : "Laporan Darurat Anda"}
+                </span>
+                <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md ${
+                  latestUnresolvedIncident.status === 'MENUNGGU' 
+                    ? 'bg-red-500/10 text-red-600 dark:text-red-400' 
+                    : isFinished 
+                      ? 'bg-green-600/10 text-green-600 dark:text-green-400' 
+                      : 'bg-blue-600/10 text-blue-600 dark:text-blue-400'
+                }`}>
+                  {(latestUnresolvedIncident.status || 'MENUNGGU').replace('_', ' ')}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-3 pl-1">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                    isFinished ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                  }`}>
+                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      {styles.icon}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-black text-neutral-900 dark:text-white uppercase tracking-tight truncate font-sans">
+                      {latestUnresolvedIncident.kategori || "MEDIS"}
+                    </h3>
+                    <p className="text-[10px] font-bold text-neutral-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5 font-mono">
+                      <span className="material-symbols-outlined text-xs">schedule</span> 
+                      {latestUnresolvedIncident.timestamp || 'Baru saja'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Report Summary in Quote Frame */}
+              <div className={`p-3.5 rounded-xl border flex flex-col gap-2 pl-3 ${
+                isFinished 
+                  ? 'bg-green-500/5 dark:bg-green-950/20 border-green-500/10 dark:border-green-500/10' 
+                  : 'bg-red-500/5 dark:bg-rose-950/20 border-red-500/10 dark:border-red-500/10'
+              }`}>
+                <p className="text-xs text-neutral-800 dark:text-zinc-200 leading-relaxed font-sans font-medium">
+                  <span className={`font-bold ${isFinished ? 'text-green-600 dark:text-green-400' : 'text-[#BA1A20] dark:text-red-400'}`}>
+                    {isFinished ? 'Status Penyelamatan:' : 'Pernyataan Masalah (Analisis AI):'}
+                  </span> {
+                    isFinished 
+                      ? "Laporan keselamatan ini telah dikonfirmasi aman dan berhasil diselesaikan." 
+                      : (latestUnresolvedIncident.ringkasan_masalah || latestUnresolvedIncident.ringkasan || "Melaporkan keadaan darurat - Menunggu respon lapangan.")
+                  }
+                </p>
+                <div className="flex items-center gap-1.5 text-neutral-500 dark:text-zinc-400 mt-1">
+                  <span className="material-symbols-outlined text-[15px] shrink-0">location_on</span>
+                  <span className="text-[10px] font-semibold truncate">
+                    {latestUnresolvedIncident.lokasi_teks || latestUnresolvedIncident.lokasi_deskripsi || latestUnresolvedIncident.desc || 'Surabaya'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Personal Progress / Rescue Timeline */}
+              <div className={`border-t border-dashed pt-3 ${isFinished ? 'border-green-500/20' : 'border-red-500/20'}`}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 dark:text-zinc-500 mb-2.5 font-sans leading-none">
+                  PROGRES PENANGANAN DISPATCH
+                </p>
+                <div className="grid grid-cols-3 gap-1 relative pl-1">
+                  <div className="flex flex-col items-center text-center">
+                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                      latestUnresolvedIncident.status === 'MENUNGGU' || latestUnresolvedIncident.status === 'MENUJU_LOKASI' || isFinished
+                        ? 'bg-red-600 text-white' : 'bg-neutral-200 dark:bg-zinc-800 text-neutral-400'
+                    }`}>
+                      ✓
+                    </div>
+                    <span className="text-[9px] font-black text-neutral-800 dark:text-zinc-300 mt-1 uppercase whitespace-nowrap">Diterima</span>
+                  </div>
+                  
+                  <div className="flex flex-col items-center text-center">
+                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                      latestUnresolvedIncident.status === 'MENUJU_LOKASI' || isFinished
+                        ? 'bg-blue-600 text-white' : 'bg-neutral-200 dark:bg-zinc-800 text-neutral-400'
+                    }`}>
+                      {latestUnresolvedIncident.status === 'MENUJU_LOKASI' || isFinished ? '✓' : '2'}
+                    </div>
+                    <span className="text-[9px] font-black text-neutral-800 dark:text-zinc-300 mt-1 uppercase whitespace-nowrap">Respon Tim</span>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                      isFinished
+                        ? 'bg-green-600 text-white' : 'bg-neutral-200 dark:bg-zinc-800 text-neutral-400'
+                    }`}>
+                      {isFinished ? '✓' : '3'}
+                    </div>
+                    <span className="text-[9px] font-black text-neutral-800 dark:text-zinc-300 mt-1 uppercase whitespace-nowrap">Selesai</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Responder Tracker Panel */}
+              {latestUnresolvedIncident.status === 'MENUJU_LOKASI' && latestUnresolvedIncident.rescuer && (
+                <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-xl border border-blue-200/50 dark:border-blue-900/30 flex items-center justify-between gap-3 mt-1">
+                  <div className="flex items-center gap-2.5">
+                    <img 
+                      src={latestUnresolvedIncident.rescuer.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"} 
+                      alt="Rescuer Avatar" 
+                      className="w-8 h-8 rounded-full object-cover border-2 border-blue-500" 
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="text-left">
+                      <p className="text-[11px] font-black text-neutral-800 dark:text-white leading-tight">
+                        {latestUnresolvedIncident.rescuer.name || "Budi Santoso"}
+                      </p>
+                      <p className="text-[9px] text-[#2b6cb0] dark:text-blue-400 font-bold mt-0.5">Relawan responder dalam perjalanan</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.location.href = "tel:112";
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 hover:bg-blue-700 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[11px]">call</span>
+                    TELEPON
+                  </button>
+                </div>
+              )}
+
+              {/* Control Footer */}
+              <div className="flex gap-2.5 mt-1">
+                {!isFinished ? (
+                  <button 
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await handleResolveIncident(latestUnresolvedIncident.id);
+                    }}
+                    className="flex-1 bg-green-600 text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-green-700 active:scale-[0.98] transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                    Nyatakan Aman / Selesai
+                  </button>
+                ) : (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setJustFinishedId(null);
+                      // Clear the resolved view and pull general updates
+                      fetchUnresolvedIncident();
+                    }}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex justify-center items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">verified</span>
+                    <span>Tutup Laporan Aman</span>
+                  </button>
+                )}
+                
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.href = "tel:112";
+                  }}
+                  className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-red-100 text-[#BA1A20] hover:bg-red-200 dark:bg-red-950/20 dark:text-red-400 transition-colors shadow-sm cursor-pointer"
+                  title="Hubungi Utama"
+                >
+                  <span className="material-symbols-outlined text-[18px]">call</span>
+                </button>
+              </div>
+            </div>
+          );
+        } else {
+          // PREMIUM Styled Community alert card
+          return (
+            <div className="w-full max-w-sm mt-5 bg-white dark:bg-zinc-900 border border-neutral-200 dark:border-zinc-800 rounded-2xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.04)] animate-fade-in text-left flex flex-col gap-3 relative overflow-hidden select-none">
+              <div className="absolute top-0 left-0 w-full h-1 bg-amber-500 animate-pulse" />
+              
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-[9px] font-black tracking-wider uppercase text-amber-600 dark:text-amber-400">
+                  <span className="material-symbols-outlined text-[14px]">campaign</span>
+                  Laporan Aktif Warga Sekitar
+                </span>
+                <span className="text-[10px] font-bold text-neutral-400 dark:text-zinc-500 font-mono">
+                  {latestUnresolvedIncident.timestamp || 'Baru saja'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5 bg-amber-500/5 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-500/10 dark:border-amber-500/20">
+                <span className="material-symbols-outlined text-amber-500 text-xl font-black shrink-0">
+                  {styles.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="font-bold text-xs uppercase text-neutral-800 dark:text-zinc-100 block truncate">
+                    {latestUnresolvedIncident.kategori || "MEDIS"}
+                  </span>
+                  <span className="text-[10px] text-neutral-500 dark:text-zinc-400 block truncate font-medium">
+                    Pelapor: {latestUnresolvedIncident.reporter_name || latestUnresolvedIncident.reporterName || 'Seseorang'}
+                  </span>
+                </div>
+                <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 ${
+                  latestUnresolvedIncident.status === 'MENUNGGU' 
+                    ? 'bg-amber-500/15 text-amber-600'
+                    : 'bg-blue-500/15 text-blue-600'
+                }`}>
+                  {(latestUnresolvedIncident.status || 'MENUNGGU').replace('_', ' ')}
+                </span>
+              </div>
+
+              <p className="text-xs text-neutral-600 dark:text-zinc-350 leading-relaxed pl-1 font-medium font-sans">
+                {latestUnresolvedIncident.ringkasan_masalah || latestUnresolvedIncident.ringkasan || "Tidak ada rincian tambahan."}
+              </p>
+
+              <div className="flex items-center gap-1 text-neutral-400 dark:text-zinc-500 pl-1">
+                <span className="material-symbols-outlined text-[14px]">location_on</span>
+                <span className="text-[10px] font-semibold truncate text-neutral-500 dark:text-zinc-400">
+                  {latestUnresolvedIncident.lokasi_teks || latestUnresolvedIncident.lokasi_deskripsi || latestUnresolvedIncident.desc || 'Surabaya'}
+                </span>
+              </div>
+
+              {/* Action Footer inside the card */}
+              <div className="border-t border-neutral-200 dark:border-zinc-800/80 pt-3 mt-1 flex gap-2">
+                {latestUnresolvedIncident.status === 'MENUNGGU' ? (
+                  <button
+                    onClick={() => handleAcceptCommunityIncident(latestUnresolvedIncident.id)}
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-1 cursor-pointer select-none"
+                  >
+                    <span className="material-symbols-outlined text-sm">handshake</span>
+                    Bantu Penyelamatan
+                  </button>
+                ) : (
+                  <div className="flex-1 bg-neutral-100 dark:bg-zinc-800/80 text-center py-2 rounded-xl text-[10px] text-neutral-500 dark:text-zinc-400 font-bold uppercase tracking-wider select-none flex items-center justify-center">
+                    Ditangani oleh Relawan
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    window.location.href = "tel:112";
+                  }}
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-100 text-[#BA1A20] hover:bg-red-200 transition-colors shrink-0 cursor-pointer"
+                  title="Hubungi Utama"
+                >
+                  <span className="material-symbols-outlined text-sm">call</span>
+                </button>
+              </div>
+            </div>
+          );
+        }
+      })()}
       </div>
     </div>
   );

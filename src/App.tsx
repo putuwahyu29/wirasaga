@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BottomNav from './components/BottomNav';
 import Header from './components/Header';
 import DashboardView from './components/DashboardView';
@@ -86,6 +86,91 @@ export default function App() {
   const [currentView, setCurrentView] = useState<'sos' | 'radar' | 'toolkit' | 'telepon' | 'pengaturan'>('sos');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Looping global alarm state for receiving emergencies
+  const [isGlobalAlarmPlaying, setIsGlobalAlarmPlaying] = useState(false);
+  const globalAlarmAudioCtxRef = useRef<AudioContext | null>(null);
+  const globalAlarmOscillatorRef1 = useRef<OscillatorNode | null>(null);
+  const globalAlarmOscillatorRef2 = useRef<OscillatorNode | null>(null);
+  const globalAlarmLfoRef = useRef<OscillatorNode | null>(null);
+  const globalAlarmGainRef = useRef<GainNode | null>(null);
+
+  const startGlobalAlarm = () => {
+    try {
+      if (globalAlarmAudioCtxRef.current) return;
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      globalAlarmAudioCtxRef.current = ctx;
+
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc2.type = 'sine';
+
+      // Setup swooping dual high-intensity sirens (unmistakable emergency alarms)
+      osc1.frequency.setValueAtTime(450, ctx.currentTime);
+      osc2.frequency.setValueAtTime(600, ctx.currentTime);
+
+      const lfo = ctx.createOscillator();
+      const lfoGain = ctx.createGain();
+      lfo.frequency.value = 2.0; 
+      lfoGain.gain.value = 150;  
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc1.frequency);
+      lfoGain.connect(osc2.frequency);
+
+      gain.gain.setValueAtTime(0.12, ctx.currentTime); 
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start();
+      osc2.start();
+      lfo.start();
+
+      globalAlarmOscillatorRef1.current = osc1;
+      globalAlarmOscillatorRef2.current = osc2;
+      globalAlarmLfoRef.current = lfo;
+      globalAlarmGainRef.current = gain;
+      setIsGlobalAlarmPlaying(true);
+    } catch (err) {
+      console.error("Failed to play global alert siren:", err);
+    }
+  };
+
+  const stopGlobalAlarm = () => {
+    try {
+      if (globalAlarmOscillatorRef1.current) {
+        globalAlarmOscillatorRef1.current.stop();
+        globalAlarmOscillatorRef1.current.disconnect();
+        globalAlarmOscillatorRef1.current = null;
+      }
+      if (globalAlarmOscillatorRef2.current) {
+        globalAlarmOscillatorRef2.current.stop();
+        globalAlarmOscillatorRef2.current.disconnect();
+        globalAlarmOscillatorRef2.current = null;
+      }
+      if (globalAlarmLfoRef.current) {
+        globalAlarmLfoRef.current.stop();
+        globalAlarmLfoRef.current.disconnect();
+        globalAlarmLfoRef.current = null;
+      }
+      if (globalAlarmGainRef.current) {
+        globalAlarmGainRef.current.disconnect();
+        globalAlarmGainRef.current = null;
+      }
+      if (globalAlarmAudioCtxRef.current) {
+        globalAlarmAudioCtxRef.current.close();
+        globalAlarmAudioCtxRef.current = null;
+      }
+      setIsGlobalAlarmPlaying(false);
+    } catch (e) {
+      console.error("Failed to stop global alert siren:", e);
+    }
+  };
   const [user, setUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [highContrast, setHighContrast] = useState(false);
@@ -229,25 +314,29 @@ export default function App() {
       
       if (playGlobalAlarm && alertItemData) {
         console.log("ALERT! Real-time background incident detected:", alertItemData);
-        // Play the unmistakable emergency alert siren
-        playNotifySiren();
+        // Play the unmistakable emergency alert siren continuously
+        startGlobalAlarm();
         
         // Show prominent Sonner action-toast globally
         toast.error(`ALARM DARURAT: ${alertItemData.kategori}`, {
           description: `Seseorang (${alertItemData.reporter_name || 'Korban'}) membutuhkan pertolongan segera: ${alertItemData.ringkasan_masalah || 'Segera berikan bantuan.'}`,
           position: 'top-center',
-          duration: 9000,
+          duration: 15000,
           action: {
             label: 'BUKA RADAR',
             onClick: () => {
               setCurrentView('radar');
+              stopGlobalAlarm();
             }
           }
         });
       }
     });
     
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      stopGlobalAlarm();
+    };
   }, [user]);
 
   if (authChecking) {
@@ -293,7 +382,7 @@ export default function App() {
 
     switch (currentView) {
       case 'sos':
-        return <DashboardView profile={profile} />;
+        return <DashboardView profile={profile} user={user} />;
       case 'radar':
         return <RadarSekitarView profile={profile} />;
       case 'toolkit':
@@ -313,7 +402,7 @@ export default function App() {
           setTheme={setTheme}
         />;
       default:
-        return <DashboardView profile={profile} />;
+        return <DashboardView profile={profile} user={user} />;
     }
   };
 
@@ -321,6 +410,32 @@ export default function App() {
     <div className="bg-surface-dim dark:bg-zinc-900 min-h-screen flex justify-center w-full overflow-x-hidden">
       <div className="bg-background dark:bg-zinc-950 text-on-background dark:text-zinc-50 h-[100dvh] flex flex-col font-sans relative w-full md:max-w-2xl lg:max-w-4xl xl:max-w-6xl shadow-2xl overflow-hidden md:border-x md:border-surface-variant/30 dark:border-zinc-800 flex-1">
         {!isEditingProfile && !isChatOpen && <Header avatar={profile.avatar} onProfileClick={() => { setCurrentView('pengaturan'); }} />}
+        
+        {isGlobalAlarmPlaying && (
+          <div className="bg-red-600 dark:bg-rose-700 text-white px-4 py-3 flex flex-wrap items-center justify-between gap-3 animate-pulse font-sans z-50 border-b border-red-700 shadow-lg shrink-0">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined filled text-white animate-bounce-short">notifications_active</span>
+              <span className="text-xs md:text-sm font-black tracking-wide">PANGGILAN DARURAT: Seseorang butuh bantuan segera!</span>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  setCurrentView('radar');
+                  stopGlobalAlarm();
+                }}
+                className="bg-white text-red-700 px-3 py-1 text-[11px] font-black rounded hover:bg-neutral-100 transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                BUKA RADAR
+              </button>
+              <button 
+                onClick={stopGlobalAlarm}
+                className="bg-red-900/80 text-white border border-red-400/30 px-3 py-1 text-[11px] font-black rounded hover:bg-red-900 transition-all cursor-pointer active:scale-95"
+              >
+                MATIKAN SIRENE
+              </button>
+            </div>
+          </div>
+        )}
         
         <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar relative w-full">
           {renderView()}

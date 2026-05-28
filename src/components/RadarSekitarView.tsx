@@ -835,119 +835,280 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
               );
             }
 
-            return listToRender.map((item, idx) => (
-              <div key={idx} 
-                onClick={() => setSelectedIncidentInfo(item)}
-                className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-neutral-200 dark:border-zinc-800 flex flex-col gap-4 hover:bg-neutral-50 dark:hover:bg-zinc-800 transition-all cursor-pointer group relative overflow-hidden text-left"
-              >
-                {/* Highlight bar for urgency */}
-                <div className={`absolute top-0 left-0 w-1.5 h-full ${item.bg.replace('/10', '').replace('bg-surface-container-highest', 'bg-neutral-300')}`} />
-                
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between pl-2 gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-11 h-11 rounded-full ${item.bg} ${item.text} flex items-center justify-center shrink-0`}>
-                      <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
+            return listToRender.map((item, idx) => {
+              const isMyReportCard = activeRadarTab === 'saya';
+
+              if (isMyReportCard) {
+                return (
+                  <div key={idx} 
+                    onClick={() => setSelectedIncidentInfo(item)}
+                    className="bg-gradient-to-br from-red-50 to-white dark:from-zinc-900/90 dark:to-zinc-950 p-5 rounded-2xl shadow-[0_8px_30px_rgba(239,68,68,0.08)] border-2 border-red-500/30 dark:border-red-500/20 flex flex-col gap-4 hover:shadow-[0_12px_36px_rgba(239,68,68,0.12)] transition-all cursor-pointer group relative overflow-hidden text-left"
+                  >
+                    {/* Top Animated Pulse Indicator line */}
+                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-600 via-amber-500 to-red-600 animate-pulse" />
+                    
+                    {/* Unique Identifier Header */}
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="flex items-center gap-1.5 bg-[#BA1A20] text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm">
+                        <span className="material-symbols-outlined text-[12px] animate-bounce-short">notifications_active</span>
+                        Laporan Darurat Anda
+                      </span>
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md ${
+                        item.status === 'MENUNGGU' 
+                          ? 'bg-red-500/10 text-red-600 dark:text-red-400' 
+                          : item.status === 'TERTANGANI' 
+                            ? 'bg-green-600/10 text-green-600 dark:text-green-400' 
+                            : 'bg-blue-600/10 text-blue-600 dark:text-blue-400'
+                      }`}>
+                        {item.status.replace('_', ' ')}
+                      </span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-tight truncate font-sans">{item.name}</h3>
-                      <p className="text-[11px] font-medium text-neutral-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5 font-mono">
-                        <span className="material-symbols-outlined text-xs">schedule</span> 
-                        {item.time?.includes('T') ? new Date(item.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : item.time}
+
+                    <div className="flex items-start justify-between gap-3 pl-1">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-11 h-11 rounded-full bg-red-600 text-white flex items-center justify-center shrink-0 shadow-sm`}>
+                          <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-black text-neutral-900 dark:text-white uppercase tracking-tight truncate font-sans">
+                            {item.name}
+                          </h3>
+                          <p className="text-[10px] font-bold text-neutral-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5 font-mono">
+                            <span className="material-symbols-outlined text-xs">schedule</span> 
+                            {item.time?.includes('T') ? new Date(item.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : item.time}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Report Summary in Quote Frame */}
+                    <div className="bg-red-500/5 dark:bg-rose-950/20 p-3.5 rounded-xl border border-red-500/10 dark:border-red-500/10 flex flex-col gap-2 pl-3">
+                      <p className="text-xs text-neutral-800 dark:text-zinc-200 leading-relaxed font-sans font-medium">
+                        <span className="font-bold text-[#BA1A20] dark:text-red-400">Pernyataan Masalah (Analisis AI):</span> {item.ringkasan}
                       </p>
+                      <div className="flex items-center gap-1.5 text-neutral-500 dark:text-zinc-400 mt-1">
+                        <span className="material-symbols-outlined text-[15px] shrink-0">location_on</span>
+                        <span className="text-[10px] font-semibold truncate">{item.desc}</span>
+                      </div>
+                    </div>
+
+                    {/* Personal Progress / Rescue Timeline */}
+                    <div className="border-t border-dashed border-red-500/20 pt-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-neutral-400 dark:text-zinc-500 mb-2.5 font-sans leading-none">
+                        PROGRES PENANGANAN DISPATCH
+                      </p>
+                      <div className="grid grid-cols-3 gap-1 relative pl-1">
+                        <div className="flex flex-col items-center text-center">
+                          <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                            item.status === 'MENUNGGU' || item.status === 'MENUJU_LOKASI' || item.status === 'TERTANGANI'
+                              ? 'bg-red-600 text-white' : 'bg-neutral-200 dark:bg-zinc-800 text-neutral-400'
+                          }`}>
+                            ✓
+                          </div>
+                          <span className="text-[9px] font-black text-neutral-800 dark:text-zinc-300 mt-1 uppercase whitespace-nowrap">Diterima</span>
+                        </div>
+                        
+                        <div className="flex flex-col items-center text-center">
+                          <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                            item.status === 'MENUJU_LOKASI' || item.status === 'TERTANGANI'
+                              ? 'bg-blue-600 text-white' : 'bg-neutral-200 dark:bg-zinc-800 text-neutral-400'
+                          }`}>
+                            {item.status === 'MENUJU_LOKASI' || item.status === 'TERTANGANI' ? '✓' : '2'}
+                          </div>
+                          <span className="text-[9px] font-black text-neutral-800 dark:text-zinc-300 mt-1 uppercase whitespace-nowrap">Respon Tim</span>
+                        </div>
+
+                        <div className="flex flex-col items-center text-center">
+                          <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                            item.status === 'TERTANGANI'
+                              ? 'bg-green-600 text-white' : 'bg-neutral-200 dark:bg-zinc-800 text-neutral-400'
+                          }`}>
+                            {item.status === 'TERTANGANI' ? '✓' : '3'}
+                          </div>
+                          <span className="text-[9px] font-black text-neutral-800 dark:text-zinc-300 mt-1 uppercase whitespace-nowrap">Selesai</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Responder Tracker Panel */}
+                    {item.status === 'MENUJU_LOKASI' && (
+                      <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-xl border border-blue-200/50 dark:border-blue-900/30 flex items-center justify-between gap-3 mt-1">
+                        <div className="flex items-center gap-2.5">
+                          <img 
+                            src={item.rescuer?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"} 
+                            alt="Rescuer Avatar" 
+                            className="w-8 h-8 rounded-full object-cover border-2 border-blue-500" 
+                            referrerPolicy="no-referrer"
+                          />
+                          <div>
+                            <p className="text-[11px] font-black text-neutral-800 dark:text-white leading-tight">
+                              {item.rescuer?.name || "Budi Santoso"}
+                            </p>
+                            <p className="text-[9px] text-[#2b6cb0] dark:text-blue-400 font-bold mt-0.5">Relawan responder dalam perjalanan</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = "tel:112";
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold text-[9px] uppercase tracking-wider flex items-center gap-1 hover:bg-blue-700 pointer-events-auto"
+                        >
+                          <span className="material-symbols-outlined text-[11px]">call</span>
+                          TELEPON
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Operational controls for reporter self-resolution */}
+                    <div className="flex gap-2.5 mt-1 pl-1">
+                      {item.status !== 'TERTANGANI' ? (
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await handleFinishHelp(item.id);
+                          }}
+                          className="flex-1 bg-green-600 text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-green-700 active:scale-[0.98] transition-all shadow-sm flex items-center justify-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                          Nyatakan Aman / Selesai
+                        </button>
+                      ) : (
+                        <div className="flex-1 bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400 py-2 rounded-xl font-bold text-[11px] uppercase tracking-wider flex justify-center items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px]">verified</span>
+                          <span>Laporan Selesai Ditangani</span>
+                        </div>
+                      )}
+                      
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.location.href = "tel:112";
+                        }}
+                        className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-950/20 dark:text-red-400 transition-colors shadow-sm"
+                        title="Hubungi Layanan Darurat Utama"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">call</span>
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center sm:items-end justify-between gap-2 shrink-0">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${item.status === 'MENUNGGU' ? 'bg-red-500/10 text-red-500' : item.status === 'TERTANGANI' ? 'bg-green-600/11 text-green-600' : 'bg-blue-600/11 text-blue-600'}`}>
-                      {item.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col gap-2 pl-2">
-                  <p className="text-xs text-neutral-600 dark:text-zinc-350 leading-relaxed font-sans">
-                    <span className="font-bold text-neutral-900 dark:text-white">{item.reporterName}</span> melaporkan: {item.ringkasan}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-1 bg-neutral-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-neutral-200 dark:border-zinc-800/80">
-                    <span className="material-symbols-outlined text-[15px] text-neutral-400 shrink-0">location_on</span> 
-                    <span className="text-[11px] font-semibold text-neutral-500 dark:text-zinc-350 truncate">{item.desc}</span>
-                  </div>
-                </div>
+                );
+              }
 
-                {/* Relawan tracker inside reports owned by the logged-in user */}
-                {activeRadarTab === 'saya' && item.status === 'MENUJU_LOKASI' && (
-                  <div className="mt-1 border-t border-dashed border-neutral-200 dark:border-zinc-800 pt-3 bg-neutral-50 dark:bg-zinc-950/40 -mx-5 -mb-5 p-5 rounded-b-2xl">
-                     <div className="flex items-center justify-between gap-3 text-left">
-                       <div className="flex items-center gap-2.5">
-                         <div className="relative shrink-0">
-                           <img 
-                             src={item.rescuer?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"} 
-                             alt="Rescuer Avatar" 
-                             className="w-8 h-8 rounded-full object-cover border border-red-500" 
-                             referrerPolicy="no-referrer"
-                           />
-                           <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 text-white flex items-center justify-center rounded-full text-[8px] font-black leading-none bg-green-600 border border-white">
-                             ✓
-                           </span>
+              return (
+                <div key={idx} 
+                  onClick={() => setSelectedIncidentInfo(item)}
+                  className="bg-white dark:bg-zinc-900 p-5 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-neutral-200 dark:border-zinc-800 flex flex-col gap-4 hover:bg-neutral-50 dark:hover:bg-zinc-800 transition-all cursor-pointer group relative overflow-hidden text-left"
+                >
+                  {/* Highlight bar for urgency */}
+                  <div className={`absolute top-0 left-0 w-1.5 h-full ${item.bg.replace('/10', '').replace('bg-surface-container-highest', 'bg-neutral-300')}`} />
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between pl-2 gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-11 h-11 rounded-full ${item.bg} ${item.text} flex items-center justify-center shrink-0`}>
+                        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-bold text-neutral-900 dark:text-white uppercase tracking-tight truncate font-sans">{item.name}</h3>
+                        <p className="text-[11px] font-medium text-neutral-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5 font-mono">
+                          <span className="material-symbols-outlined text-xs">schedule</span> 
+                          {item.time?.includes('T') ? new Date(item.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : item.time}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center sm:items-end justify-between gap-2 shrink-0">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${item.status === 'MENUNGGU' ? 'bg-red-500/10 text-red-500' : item.status === 'TERTANGANI' ? 'bg-green-600/11 text-green-600' : 'bg-blue-600/11 text-blue-600'}`}>
+                        {item.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 pl-2">
+                    <p className="text-xs text-neutral-600 dark:text-zinc-350 leading-relaxed font-sans">
+                      <span className="font-bold text-neutral-900 dark:text-white">{item.reporterName}</span> melaporkan: {item.ringkasan}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1 bg-neutral-50 dark:bg-zinc-950 p-2.5 rounded-lg border border-neutral-200 dark:border-zinc-800/80">
+                      <span className="material-symbols-outlined text-[15px] text-neutral-400 shrink-0">location_on</span> 
+                      <span className="text-[11px] font-semibold text-neutral-500 dark:text-zinc-350 truncate">{item.desc}</span>
+                    </div>
+                  </div>
+
+                  {/* Relawan tracker inside reports owned by the logged-in user */}
+                  {activeRadarTab === 'saya' && item.status === 'MENUJU_LOKASI' && (
+                    <div className="mt-1 border-t border-dashed border-neutral-200 dark:border-zinc-800 pt-3 bg-neutral-50 dark:bg-zinc-950/40 -mx-5 -mb-5 p-5 rounded-b-2xl">
+                       <div className="flex items-center justify-between gap-3 text-left">
+                         <div className="flex items-center gap-2.5">
+                           <div className="relative shrink-0">
+                             <img 
+                               src={item.rescuer?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"} 
+                               alt="Rescuer Avatar" 
+                               className="w-8 h-8 rounded-full object-cover border border-red-500" 
+                               referrerPolicy="no-referrer"
+                             />
+                             <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 text-white flex items-center justify-center rounded-full text-[8px] font-black leading-none bg-green-600 border border-white">
+                               ✓
+                             </span>
+                           </div>
+                           <div>
+                             <p className="text-[11px] font-bold text-neutral-800 dark:text-white leading-tight">
+                               {item.rescuer?.name || "Budi Santoso"} (Relawan Responder)
+                             </p>
+                             <p className="text-[10px] text-neutral-500 dark:text-zinc-400 mt-0.5">Sedang Menuju ke Koordinat Anda</p>
+                           </div>
                          </div>
-                         <div>
-                           <p className="text-[11px] font-bold text-neutral-800 dark:text-white leading-tight">
-                             {item.rescuer?.name || "Budi Santoso"} (Relawan Responder)
-                           </p>
-                           <p className="text-[10px] text-neutral-500 dark:text-zinc-400 mt-0.5">Sedang Menuju ke Koordinat Anda</p>
-                         </div>
+                         <button 
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             window.location.href = "tel:112";
+                           }}
+                           className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[10px] uppercase tracking-wide flex items-center gap-1 hover:bg-emerald-700 pointer-events-auto"
+                         >
+                           <span className="material-symbols-outlined text-[12px]">call</span>
+                           Hubungi
+                         </button>
                        </div>
-                       <button 
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           window.location.href = "tel:112";
-                         }}
-                         className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[10px] uppercase tracking-wide flex items-center gap-1 hover:bg-emerald-700 pointer-events-auto"
-                       >
-                         <span className="material-symbols-outlined text-[12px]">call</span>
-                         Hubungi
-                       </button>
-                     </div>
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                <div className="flex items-center gap-3 mt-2 pl-2">
-                  {item.status === 'MENUNGGU' && (
+                  <div className="flex items-center gap-3 mt-2 pl-2">
+                    {item.status === 'MENUNGGU' && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAccept(item.id, item.lat, item.lng);
+                        }}
+                        className="flex-1 min-w-0 bg-[#BA1A20] text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-red-700 active:scale-[0.98] transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-[16px] shrink-0">directions_run</span>
+                        <span className="truncate">Ambil Tindakan</span>
+                      </button>
+                    )}
+                    {item.status === 'MENUJU_LOKASI' && (
+                      <div className="flex-1 min-w-0 bg-red-100 text-[#BA1A20] dark:bg-red-950/20 dark:text-red-400 py-2 rounded-xl font-bold text-[11px] uppercase tracking-wider flex justify-center items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] animate-pulse shrink-0">directions_car</span>
+                        <span className="truncate">Relawan Menuju Lokasi</span>
+                      </div>
+                    )}
+                    {item.status === 'TERTANGANI' && (
+                      <div className="flex-1 min-w-0 bg-green-50 text-green-700 dark:bg-green-950/10 dark:text-green-400 py-2 rounded-xl font-bold text-[11px] uppercase tracking-wider flex justify-center items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] shrink-0">verified</span>
+                        <span className="truncate">Selesai Ditangani</span>
+                      </div>
+                    )}
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAccept(item.id, item.lat, item.lng);
+                        window.location.href = "tel:112";
                       }}
-                      className="flex-1 min-w-0 bg-[#BA1A20] text-white py-2 rounded-xl font-bold text-[10px] uppercase tracking-wider hover:bg-red-700 active:scale-[0.98] transition-all shadow-sm flex items-center justify-center gap-1.5"
+                      className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors shadow-sm"
+                      title="Hubungi Darurat"
                     >
-                      <span className="material-symbols-outlined text-[16px] shrink-0">directions_run</span>
-                      <span className="truncate">Ambil Tindakan</span>
+                      <span className="material-symbols-outlined text-[18px]">call</span>
                     </button>
-                  )}
-                  {item.status === 'MENUJU_LOKASI' && (
-                    <div className="flex-1 min-w-0 bg-red-100 text-[#BA1A20] dark:bg-red-950/20 dark:text-red-400 py-2 rounded-xl font-bold text-[11px] uppercase tracking-wider flex justify-center items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px] animate-pulse shrink-0">directions_car</span>
-                      <span className="truncate">Relawan Menuju Lokasi</span>
-                    </div>
-                  )}
-                  {item.status === 'TERTANGANI' && (
-                    <div className="flex-1 min-w-0 bg-green-50 text-green-700 dark:bg-green-950/10 dark:text-green-400 py-2 rounded-xl font-bold text-[11px] uppercase tracking-wider flex justify-center items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px] shrink-0">verified</span>
-                      <span className="truncate">Selesai Ditangani</span>
-                    </div>
-                  )}
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.location.href = "tel:112";
-                    }}
-                    className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors shadow-sm"
-                    title="Hubungi Darurat"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">call</span>
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ));
+              );
+            });
           })()}
         </div>
       </section>
