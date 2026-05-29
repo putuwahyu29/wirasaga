@@ -120,6 +120,10 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [latestUnresolvedIncident, setLatestUnresolvedIncident] = useState<any | null>(null);
   const [justFinishedId, setJustFinishedId] = useState<string | null>(null);
+  const [shakeDetectedMsg, setShakeDetectedMsg] = useState<string | null>(null);
+  const [shakeCountdown, setShakeCountdown] = useState<number | null>(null);
+  const [sosCancelCountdown, setSosCancelCountdown] = useState<number | null>(null);
+  const [pendingSOSReason, setPendingSOSReason] = useState<string>("");
 
   // Style helper matching the system design token
   const getCategoryStyles = (category: string) => {
@@ -233,19 +237,46 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
       if (acceleration && acceleration.x && acceleration.y && acceleration.z) {
         const totalAccel = Math.abs(acceleration.x) + Math.abs(acceleration.y) + Math.abs(acceleration.z);
         if (totalAccel > 75) { // High thresh for heavy drop, crash, or severe accident
-          if (!isSending && sosStatus !== 'success') {
-            triggerSOS("Deteksi Guncangan (Tabrakan / Jatuh Keras)");
+          if (!isSending && sosStatus !== 'success' && shakeCountdown === null) {
+            setShakeDetectedMsg("GUNCANGAN EKSTREM TERDETEKSI!");
+            setShakeCountdown(10);
           }
         }
       }
     };
     window.addEventListener('devicemotion', handleMotion);
     return () => window.removeEventListener('devicemotion', handleMotion);
-  }, [isSending, sosStatus]);
+  }, [isSending, sosStatus, shakeCountdown]);
+
+  useEffect(() => {
+    if (shakeCountdown === null) return;
+    if (shakeCountdown <= 0) {
+      setShakeCountdown(null);
+      executeSOS("Deteksi Guncangan Otomatis (Abaikan jika salah, tapi validasi lokasi)");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setShakeCountdown(prev => prev !== null ? prev - 1 : null);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [shakeCountdown]);
+
+  useEffect(() => {
+    if (sosCancelCountdown === null) return;
+    if (sosCancelCountdown <= 0) {
+      setSosCancelCountdown(null);
+      executeSOS(pendingSOSReason);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSosCancelCountdown(prev => prev !== null ? prev - 1 : null);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [sosCancelCountdown]);
 
   const startPress = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
-    if (isSending || sosStatus === 'success') return;
+    if (isSending || sosStatus === 'success' || sosCancelCountdown !== null) return;
     setIsPressing(true);
     setSosStatus('idle');
     pressTimer.current = setTimeout(() => {
@@ -261,10 +292,20 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
     }
   };
 
-  const triggerSOS = async (reason = "Darurat Nasional via Widget") => {
+  const triggerSOS = (reason = "Darurat Nasional via Widget") => {
+    setIsPressing(false);
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    setPendingSOSReason(reason);
+    setSosCancelCountdown(5); // 5 seconds to cancel
+  };
+
+  const executeSOS = async (reason: string) => {
     setIsPressing(false);
     setIsSending(true);
     try {
+      // Simulate taking background media to deter pranks
+      console.log('Simulating Media Capture (Camera+Audio)...');
+      
       const response = await fetch('/api/sos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -280,8 +321,18 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
         })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
         throw new Error("Failed to call SOS API");
+      }
+
+      if (data.data && data.data.valid === false) {
+        setSosStatus('idle');
+        const reason = data.data.alasan_verifikasi || 'Laporan ini terdeteksi sebagai prank atau kurang jelas oleh AI Dispatcher. Kirim ulang dengan bukti foto/audio korban.';
+        toast.error(`Verifikasi Gagal: ${reason}`, { position: 'top-center', duration: 8000 });
+        setIsSending(false);
+        return;
       }
 
       setSosStatus('success');
@@ -312,33 +363,99 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
   };
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 px-margin-mobile pt-8 pb-32 max-w-4xl mx-auto w-full relative min-h-[100dvh] md:min-h-full">
-      <div className="flex flex-col items-center w-full max-w-sm animate-fade-in">
+    <>
+      {shakeCountdown !== null && (
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-white text-center animate-fade-in select-none">
+          <div className="w-24 h-24 bg-red-600 rounded-full flex items-center justify-center animate-pulse mb-6">
+            <span className="material-symbols-outlined text-[48px] text-white">vibration</span>
+          </div>
+          <h2 className="text-3xl font-black mb-2 text-red-500 uppercase tracking-widest">Guncangan Ekstrem</h2>
+          <p className="text-lg text-zinc-300 font-medium mb-8 max-w-sm">Mendeteksi kemungkinan benturan/jatuh. Mengirim SOS darurat secara otomatis dalam:</p>
+          <div className="text-[120px] font-black leading-none mb-10 tabular-nums">
+            {shakeCountdown}
+          </div>
+          <div className="flex flex-col w-full max-w-sm gap-4">
+            <button 
+              onClick={() => {
+                setShakeCountdown(null);
+                setShakeDetectedMsg(null);
+              }}
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 rounded-xl border border-zinc-700 transition-colors"
+            >
+              Batalkan (Aman)
+            </button>
+            <button 
+              onClick={() => {
+                setShakeCountdown(null);
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-colors"
+            >
+              Lapor Manual (Kamera / Audio)
+            </button>
+            <button 
+              onClick={() => {
+                setShakeCountdown(null);
+                executeSOS("Deteksi Guncangan Dikonfirmasi Secara Manual");
+              }}
+              className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-all"
+            >
+              Kirim SOS Sekarang
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 px-margin-mobile pt-8 pb-32 max-w-4xl mx-auto w-full relative min-h-[100dvh] md:min-h-full">
+        <div className="flex flex-col items-center w-full max-w-sm animate-fade-in select-none">
         {/* Header Text */}
-        <div className="text-center mb-10 w-full animate-fade-in delay-100">
+        <div className="text-center mb-6 w-full animate-fade-in delay-100">
           <h2 className="text-headline-lg font-headline-lg text-primary dark:text-[#BA1A20] font-bold tracking-tight mb-2">APAKAH ANDA DALAM BAHAYA?</h2>
           <p className="text-body-lg font-body-lg text-on-surface-variant dark:text-zinc-350">Tekan tombol di bawah untuk memanggil bantuan darurat segera.</p>
         </div>
+
+        {shakeDetectedMsg && (
+          <div className="bg-error-container text-on-error-container font-bold text-center p-3 rounded-xl mb-6 w-full max-w-[280px] animate-pulse shadow-md border 
+border-error flex items-center justify-center gap-2">
+            <span className="material-symbols-outlined shrink-0 text-error">vibration</span>
+            <span className="text-sm">{shakeDetectedMsg}</span>
+          </div>
+        )}
 
         {/* Big SOS Button */}
         <div className="relative flex justify-center items-center w-[280px] h-[280px] mb-6 md:mb-0 animate-fade-in delay-150">
           <div className="pulse-ring w-full h-full"></div>
           <div className="pulse-ring w-[90%] h-[90%]" style={{ animationDelay: '0.5s' }}></div>
           <button
-            disabled={isSending || sosStatus === 'success'}
-            className={`relative z-10 w-[220px] h-[220px] rounded-full text-on-primary flex flex-col justify-center items-center cursor-pointer overflow-hidden transition-all duration-100 ${
+            disabled={isSending || sosStatus === 'success' || sosCancelCountdown !== null}
+            className={`relative z-10 w-[220px] h-[220px] rounded-full text-on-primary flex flex-col justify-center items-center cursor-pointer overflow-hidden transition-all duration-100 select-none touch-none ${
               isPressing 
-                ? 'scale-95 shadow-[0_4px_12px_rgba(175,16,26,0.4),inset_0_8px_16px_rgba(0,0,0,0.2)] bg-[radial-gradient(circle,var(--color-primary-container)_0%,var(--color-primary)_100%)]'
-                : sosStatus === 'success' ? 'bg-green-600 shadow-[0_12px_36px_rgba(22,163,74,0.4)]' : 'shadow-[0_12px_36px_rgba(175,16,26,0.4),inset_0_8px_16px_rgba(255,255,255,0.2)] bg-[radial-gradient(circle,var(--color-primary-container)_0%,var(--color-primary)_100%)]'
+                ? 'scale-95 shadow-[0_4px_12px_rgba(175,16,26,0.4),inset_0_8px_16px_rgba(0,0,0,0.2)] bg-[#BA1A20]'
+                : sosStatus === 'success' ? 'bg-green-600 shadow-[0_12px_36px_rgba(22,163,74,0.4)]' : 'shadow-[0_12px_36px_rgba(175,16,26,0.4),inset_0_8px_16px_rgba(255,255,255,0.2)] bg-[#BA1A20]'
             }`}
             onMouseDown={startPress}
             onTouchStart={startPress}
             onMouseUp={endPress}
             onMouseLeave={endPress}
             onTouchEnd={endPress}
+            onContextMenu={(e) => e.preventDefault()}
           >
             {isPressing && <span className="ripple left-1/2 top-1/2 -ml-[110px] -mt-[110px] w-[220px] h-[220px]"></span>}
-            {isSending ? (
+            
+            {sosCancelCountdown !== null ? (
+              <div className="flex flex-col items-center animate-fade-in w-full h-full justify-center bg-zinc-900/90 backdrop-blur-sm relative z-20">
+                <span className="text-xl font-bold text-red-400 mb-1">BATALKAN?</span>
+                <span className="text-6xl font-black tabular-nums">{sosCancelCountdown}</span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSosCancelCountdown(null);
+                    setSosStatus('idle');
+                  }}
+                  className="mt-3 px-6 py-2 bg-white text-red-600 rounded-full font-bold text-sm hover:scale-105 active:scale-95 transition-transform"
+                >
+                  BATAL SOS
+                </button>
+              </div>
+            ) : isSending ? (
                 <span className="material-symbols-outlined animate-spin text-[48px]">autorenew</span>
             ) : sosStatus === 'success' ? (
                 <>
@@ -348,12 +465,23 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
             ) : (
               <>
                 <span className="text-[64px] font-bold leading-none mb-2 tracking-wide font-display-lg">SOS</span>
-                <span className="text-label-lg font-label-lg opacity-90 uppercase tracking-widest bg-primary-fixed-dim text-on-primary-fixed-variant px-3 py-1 rounded-full">
+                <span className="text-[10px] font-black opacity-90 uppercase tracking-widest bg-primary-fixed-dim text-on-primary-fixed-variant px-3 py-1.5 rounded-full mb-1">
                   TAHAN 2 DETIK
                 </span>
               </>
             )}
           </button>
+        </div>
+
+        {/* Legal Warning */}
+        <div className="mt-8 text-center animate-fade-in delay-200 bg-surface-container-lowest dark:bg-zinc-800/30 p-4 rounded-2xl border border-outline-variant/30 dark:border-zinc-700/30 max-w-[320px]">
+          <div className="flex items-center justify-center gap-2 mb-2 text-error">
+            <span className="material-symbols-outlined text-[18px]">gavel</span>
+            <span className="text-xs font-bold tracking-wide uppercase">Peringatan Hukum</span>
+          </div>
+          <p className="text-[11px] leading-relaxed text-on-surface-variant dark:text-zinc-400">
+            Sistem otomatis mengambil <strong className="text-on-surface dark:text-zinc-300">foto & rekaman audio senyap</strong> saat SOS aktif. Detail akun & lokasi tercatat. Laporan palsu (prank) diproses hukum pidana.
+          </p>
         </div>
       </div>
 
@@ -521,17 +649,17 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
           // PREMIUM "Laporan Saya" style matching the Radar page exactly
           return (
             <div 
-              className={`w-full max-w-sm mt-5 bg-gradient-to-br p-5 rounded-2xl border-2 flex flex-col gap-4 transition-all relative overflow-hidden text-left ${
+              className={`w-full max-w-sm mt-5 bg-white dark:bg-zinc-950 p-5 rounded-2xl border-2 flex flex-col gap-4 transition-all relative overflow-hidden text-left ${
                 isFinished 
-                  ? 'from-green-55 to-white dark:from-zinc-900/90 dark:to-zinc-950 shadow-[0_8px_30px_rgba(34,197,94,0.08)] border-green-500/30 dark:border-green-500/20' 
-                  : 'from-rose-55 to-white dark:from-zinc-900/90 dark:to-zinc-950 shadow-[0_8px_30px_rgba(239,68,68,0.08)] border-red-500/30 dark:border-red-500/20'
+                  ? 'shadow-[0_8px_30px_rgba(34,197,94,0.08)] border-green-500/30 dark:border-green-500/20' 
+                  : 'shadow-[0_8px_30px_rgba(239,68,68,0.08)] border-red-500/30 dark:border-red-500/20'
               }`}
             >
               {/* Top Animated Pulse Indicator line */}
               <div className={`absolute top-0 left-0 w-full h-1.5 animate-pulse ${
                 isFinished 
-                  ? 'bg-gradient-to-r from-green-600 via-emerald-500 to-green-600' 
-                  : 'bg-gradient-to-r from-red-600 via-amber-500 to-red-600'
+                  ? 'bg-green-600' 
+                  : 'bg-red-600'
               }`} />
               
               {/* Unique Identifier Header */}
@@ -688,7 +816,7 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
                       // Clear the resolved view and pull general updates
                       fetchUnresolvedIncident();
                     }}
-                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex justify-center items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-wider flex justify-center items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-md"
                   >
                     <span className="material-symbols-outlined text-[16px]">verified</span>
                     <span>Tutup Laporan Aman</span>
@@ -787,5 +915,6 @@ export default function DashboardView({ profile, user }: DashboardViewProps) {
       })()}
       </div>
     </div>
+    </>
   );
 }

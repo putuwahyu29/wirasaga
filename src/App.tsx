@@ -14,7 +14,7 @@ import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { auth, logoutUser, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { requestForToken, registerOnMessageListener } from './firebase';
-import { collection, doc, setDoc, query, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, query, onSnapshot, getDoc } from 'firebase/firestore';
 
 import { Toaster, toast } from 'sonner';
 
@@ -182,28 +182,54 @@ export default function App() {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
   
-  // Profile state
-  const [profile, setProfile] = useState({
-    name: "Aan Wijaya",
-    email: "aan.wijaya@example.com",
-    phone: "+62 812 3456 7890",
-    bloodType: "O",
-    allergies: "Penisilin, Kacang",
-    medicalHistory: "Asma",
-    avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDiH4QrOzY-72Wwj0iGsSLIDJUVU_z7kdWhEM0rtjqlpeBTUXJLgBI69QSNdvrZLf0OByabHaepAh9ZC3oPHETSV2gCApsjcoeknESgIfCMVOblQgxRA822mmXnZl17zYmHg448vZVNTSYyF5-NEF01ApVxaqq-z4mozPfCksS5v_dsRxYYP71jiHCXe9KYSRd98wvXV8d-0f9u5CFgB8gC3cRv84Wr3l2bI9OalSIF9T1_qHymH9ygmxKikolcF2Dti_5zUrSMRYMO"
+  // Profile state with Gamification & Reputation attributes
+  const [profile, setProfile] = useState(() => {
+    const saved = localStorage.getItem('wirasaga_profile_v2');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          name: "",
+          email: "",
+          phone: "",
+          bloodType: "",
+          allergies: "",
+          medicalHistory: "",
+          avatar: "",
+          xp: 0,
+          level: 1,
+          missionsCompleted: 0,
+          reputationScore: 100,
+          badges: [],
+          ...parsed
+        };
+      } catch (e) {}
+    }
+    return {
+      name: "",
+      email: "",
+      phone: "",
+      bloodType: "",
+      allergies: "",
+      medicalHistory: "",
+      avatar: "",
+      xp: 0,
+      level: 1,
+      missionsCompleted: 0,
+      reputationScore: 100,
+      badges: []
+    };
   });
+
+  // Save profile to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('wirasaga_profile_v2', JSON.stringify(profile));
+  }, [profile]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        setProfile(prev => ({
-          ...prev,
-          name: currentUser.displayName || "Aan Wijaya",
-          email: currentUser.email || "aan.wijaya@example.com",
-          avatar: currentUser.photoURL || prev.avatar
-        }));
-        
         // FCM token request when user is logged in
         let fcmToken: string | null = null;
         if (permissionsGranted) {
@@ -213,14 +239,60 @@ export default function App() {
         // Register user profile & FCM token in Firestore users entry
         try {
           const userDocRef = doc(db, 'users', currentUser.uid);
-          await setDoc(userDocRef, {
-            name: currentUser.displayName || "Aan Wijaya",
-            email: currentUser.email || "aan.wijaya@example.com",
-            photoURL: currentUser.photoURL || null,
+          
+          // Check if user document exists
+          const userDoc = await getDoc(userDocRef);
+          let userDataToMerge: any = {
+            name: currentUser.displayName || profile.name,
+            email: currentUser.email || profile.email,
+            photoURL: currentUser.photoURL || profile.avatar,
             fcmToken: fcmToken,
             lastActive: new Date()
-          }, { merge: true });
-          console.log("Registered user & FCM token in Firestore entry successfully.");
+          };
+          
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setProfile(prev => ({
+              ...prev,
+              name: data.name || currentUser.displayName || prev.name,
+              email: data.email || currentUser.email || prev.email,
+              avatar: data.photoURL || currentUser.photoURL || prev.avatar,
+              phone: data.phone || prev.phone,
+              bloodType: data.bloodType || prev.bloodType,
+              allergies: data.allergies || prev.allergies,
+              medicalHistory: data.medicalHistory || prev.medicalHistory,
+              xp: data.xp ?? prev.xp,
+              level: data.level ?? prev.level,
+              missionsCompleted: data.missionsCompleted ?? prev.missionsCompleted,
+              reputationScore: data.reputationScore ?? prev.reputationScore,
+              badges: data.badges ?? prev.badges
+            }));
+            // Update Firestore with new fcm token without overwriting stats
+            await setDoc(userDocRef, { fcmToken, lastActive: new Date() }, { merge: true });
+          } else {
+            // New user in firestore, seed with initial gamification stats
+            userDataToMerge = {
+               ...userDataToMerge,
+               xp: profile.xp,
+               level: profile.level,
+               missionsCompleted: profile.missionsCompleted,
+               reputationScore: profile.reputationScore,
+               badges: profile.badges,
+               phone: profile.phone,
+               bloodType: profile.bloodType,
+               allergies: profile.allergies,
+               medicalHistory: profile.medicalHistory
+            };
+            await setDoc(userDocRef, userDataToMerge, { merge: true });
+            
+            setProfile(prev => ({
+              ...prev,
+              name: currentUser.displayName || prev.name,
+              email: currentUser.email || prev.email,
+              avatar: currentUser.photoURL || prev.avatar
+            }));
+          }
+          console.log("Registered user & profile in Firestore successfully.");
         } catch (dbErr) {
           console.warn("Could not register user entry in Firestore:", dbErr);
         }
@@ -331,6 +403,8 @@ export default function App() {
           }
         });
       }
+    }, (error) => {
+      console.warn("Background incidents listener permission denied or failed:", error.message);
     });
     
     return () => {
@@ -384,7 +458,7 @@ export default function App() {
       case 'sos':
         return <DashboardView profile={profile} user={user} />;
       case 'radar':
-        return <RadarSekitarView profile={profile} />;
+        return <RadarSekitarView profile={profile} setProfile={setProfile} />;
       case 'toolkit':
         return <ToolkitView />;
       case 'telepon':

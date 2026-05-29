@@ -262,7 +262,7 @@ export default function DigitalMedicalID() {
       ) : (
         /* Render Premium High-Contrast Urgent Card Visual */
         <div className="flex flex-col gap-4">
-          <div className="bg-gradient-to-br from-[#BA1A20] via-[#AF101A] to-[#800A10] dark:from-zinc-950 dark:to-zinc-900 text-white rounded-[32px] p-5 sm:p-6 shadow-2xl relative overflow-hidden border border-[#BA1A20] dark:border-zinc-800 select-none text-left">
+          <div className="bg-[#BA1A20] dark:bg-zinc-950 text-white rounded-[32px] p-5 sm:p-6 shadow-2xl relative overflow-hidden border border-[#BA1A20] dark:border-zinc-800 select-none text-left">
             <div className="absolute top-0 right-0 w-36 h-36 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
 
             {/* Red alert stripe on Left Side for dramatic visual ID aesthetic */}

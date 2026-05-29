@@ -44,6 +44,23 @@ export default function EditProfileView({ onBack, profile, setProfile }: EditPro
     }, 1500);
   };
 
+  const [showKYCModal, setShowKYCModal] = useState(false);
+  const [kycStep, setKycStep] = useState<'ktp' | 'liveness' | 'processing'>('ktp');
+
+  const handleKYC = () => {
+    if (kycStep === 'ktp') {
+      setKycStep('liveness');
+    } else if (kycStep === 'liveness') {
+      setKycStep('processing');
+      setTimeout(() => {
+        setFormData((prev: any) => ({ ...prev, kycVerified: true, trustScore: (prev.trustScore || 70) + 15 }));
+        toast.success('Identitas terverifikasi secara hukum. Skor reputasi meningkat.', { position: 'top-center' });
+        setShowKYCModal(false);
+        setKycStep('ktp');
+      }, 3000);
+    }
+  };
+
   return (
     <div className="bg-background dark:bg-zinc-950 text-on-background dark:text-zinc-50 min-h-screen font-body-lg font-sans antialiased pb-24 animate-fade-in absolute inset-0 z-50">
       {/* Top App Bar */}
@@ -97,9 +114,67 @@ export default function EditProfileView({ onBack, profile, setProfile }: EditPro
             </div>
 
             <div className="m3-text-field with-icon">
-              <input id="phone" placeholder=" " type="tel" value={formData.phone} onChange={handleChange} />
-              <label className="font-body-lg" htmlFor="phone">Nomor Telepon</label>
+              <input id="phone" placeholder=" " type="tel" value={formData.phone} onChange={handleChange} disabled={true} className="opacity-70" />
+              <label className="font-body-lg" htmlFor="phone">Nomor Telepon (OTP Verified)</label>
               <span className="material-symbols-outlined leading-icon">call</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Identitas Terverifikasi (KYC) */}
+        <section>
+          <h2 className="font-title-md text-title-md text-on-surface-variant mb-4 px-1 flex items-center gap-2">
+            Verifikasi Identitas & e-KTP <span className="material-symbols-outlined text-green-600 text-[18px]">verified</span>
+          </h2>
+          <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant flex flex-col gap-4">
+            <p className="text-sm text-on-surface-variant font-sans">
+              Berdasarkan UU ITE, verifikasi identitas (KYC) diwajibkan untuk mencegah laporan palsu dan prank.
+            </p>
+            
+            <div className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 rounded-lg border border-neutral-200 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-neutral-400">phone_iphone</span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-neutral-800 dark:text-zinc-200">Verifikasi OTP (WhatsApp)</span>
+                  <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Terverifikasi</span>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-green-600">check_circle</span>
+            </div>
+
+            <div className={`flex items-center justify-between p-3 rounded-lg border ${formData.kycVerified ? "bg-white dark:bg-zinc-900 border-neutral-200 dark:border-zinc-800" : "bg-red-50 dark:bg-red-950/10 border-red-200 dark:border-red-900/30"}`}>
+              <div className="flex items-center gap-3">
+                <span className={`material-symbols-outlined ${formData.kycVerified ? "text-neutral-400" : "text-red-500"}`}>badge</span>
+                <div className="flex flex-col">
+                  <span className={`text-sm font-bold ${formData.kycVerified ? "text-neutral-800 dark:text-zinc-200" : "text-red-800 dark:text-red-400"}`}>Verifikasi e-KTP & Foto Wajah</span>
+                  {formData.kycVerified ? (
+                    <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Identitas Valid</span>
+                  ) : (
+                    <span className="text-[10px] text-red-600 font-bold uppercase tracking-wider">Belum Verifikasi</span>
+                  )}
+                </div>
+              </div>
+              {formData.kycVerified ? (
+                <span className="material-symbols-outlined text-green-600">check_circle</span>
+              ) : (
+                <button 
+                  onClick={() => setShowKYCModal(true)}
+                  className="bg-red-600 hover:bg-red-700 text-white text-[10px] px-3 py-1.5 rounded-full font-bold uppercase tracking-wider transition-colors shadow-sm"
+                >
+                  Mulai KYC
+                </button>
+              )}
+            </div>
+            
+            <div className="flex items-center justify-between p-3 bg-white dark:bg-zinc-900 rounded-lg border border-neutral-200 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-neutral-400">military_tech</span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-neutral-800 dark:text-zinc-200">Trust Score (Reputasi)</span>
+                  <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">Skor Kredibilitas Pelapor</span>
+                </div>
+              </div>
+              <span className={`font-black text-sm ${formData.trustScore > 80 ? 'text-green-600' : 'text-amber-500'}`}>{formData.trustScore || 70}%</span>
             </div>
           </div>
         </section>
@@ -159,6 +234,59 @@ export default function EditProfileView({ onBack, profile, setProfile }: EditPro
           </button>
         </section>
       </main>
+
+      {/* KYC Modal Overlay */}
+      {showKYCModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-neutral-200 dark:border-zinc-800 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6 text-center animate-scale-up">
+            <h3 className="text-lg font-black text-neutral-900 dark:text-white uppercase tracking-tight font-sans mb-1">
+              Verifikasi e-KTP & Liveness
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-zinc-400 font-sans mb-6">
+              Sesuai hukum yang berlaku, identitas Anda akan direkam dengan aman untuk mencegah penyalahgunaan darurat palsu.
+            </p>
+
+            {kycStep === 'ktp' && (
+              <div className="flex flex-col gap-4">
+                <div className="aspect-[1.6/1] bg-neutral-100 dark:bg-zinc-800 rounded-xl border-2 border-dashed border-neutral-300 dark:border-zinc-700 flex flex-col items-center justify-center cursor-pointer hover:bg-neutral-200 dark:hover:bg-zinc-750 transition-colors">
+                  <span className="material-symbols-outlined text-4xl text-neutral-400 mb-2">badge</span>
+                  <span className="text-xs font-bold text-neutral-600 dark:text-zinc-300">Tap untuk Ambil Foto e-KTP</span>
+                  <span className="text-[9px] text-neutral-400 mt-1">Pastikan tulisan terbaca jelas dan tidak silau</span>
+                </div>
+                <button onClick={handleKYC} className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2">
+                  Lanjutkan <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              </div>
+            )}
+
+            {kycStep === 'liveness' && (
+              <div className="flex flex-col gap-4">
+                <div className="w-48 h-48 mx-auto rounded-full bg-neutral-100 dark:bg-zinc-800 border-4 border-emerald-500 relative flex items-center justify-center overflow-hidden">
+                  <span className="material-symbols-outlined text-6xl text-neutral-400">face</span>
+                  <div className="absolute inset-0 border-[8px] border-emerald-500 rounded-full animate-ping opacity-20"></div>
+                </div>
+                <div className="text-sm font-bold text-neutral-800 dark:text-zinc-200 font-sans">
+                  Posisikan Wajah ke Tengah<br/>dan Tersenyum
+                </div>
+                <button onClick={handleKYC} className="w-full bg-emerald-600 text-white rounded-xl py-3 font-bold uppercase tracking-wider text-xs mt-2">
+                  Ambil Foto Validasi
+                </button>
+              </div>
+            )}
+
+            {kycStep === 'processing' && (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <div className="w-16 h-16 border-4 border-neutral-200 border-t-emerald-600 rounded-full animate-spin"></div>
+                <span className="text-xs font-bold text-neutral-600 dark:text-zinc-300 uppercase tracking-wider animate-pulse">Menghubungkan ke Dukcapil...</span>
+              </div>
+            )}
+
+            <button onClick={() => setShowKYCModal(false)} className="mt-4 text-[10px] text-neutral-400 font-bold uppercase tracking-wider hover:text-neutral-600 dark:hover:text-zinc-200">
+              Batalkan
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

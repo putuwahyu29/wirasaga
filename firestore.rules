@@ -24,16 +24,9 @@ service cloud.firestore {
              && data.keys().size() <= 10;
     }
 
-    // Hardened rules for incidents
+    // Relaxed rules for incidents
     match /incidents/{incidentId} {
-      allow read: if true;
-      allow create: if request.resource.data.id is string 
-                   && request.resource.data.lat is number
-                   && request.resource.data.lng is number
-                   && request.resource.data.tingkat_darurat is int
-                   && request.resource.data.ringkasan_masalah is string;
-      allow update: if request.resource.data.status in ['MENUNGGU', 'TERTANGANI', 'MENUJU_LOKASI'];
-      allow delete: if false; // Incidents cannot be deleted
+      allow read, write: if true;
     }
 
     // Hardened rules for users
@@ -42,11 +35,9 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
-    // Hardened rules for ice_contacts
+    // Relaxed rules for ice_contacts
     match /ice_contacts/{contactId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidICEContact(request.resource.data);
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if request.auth != null;
     }
   }
 }

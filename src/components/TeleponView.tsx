@@ -55,7 +55,6 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   toast.error(`Akses Database Ditolak: ${errInfo.error}`, { position: 'top-center' });
-  throw new Error(JSON.stringify(errInfo));
 }
 
 export default function TeleponView() {

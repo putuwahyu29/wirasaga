@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { toast } from 'sonner';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 // Using consistent interface
 interface Incident {
@@ -9,6 +10,8 @@ interface Incident {
   lat: number;
   lng: number;
   valid: boolean;
+  confidence_score?: number;
+  alasan_verifikasi?: string;
   kategori: string;
   ringkasan_masalah: string;
   lokasi_deskripsi: string;
@@ -35,7 +38,13 @@ interface RadarSekitarViewProps {
     bloodType?: string;
     allergies?: string;
     medicalHistory?: string;
+    xp?: number;
+    level?: number;
+    missionsCompleted?: number;
+    reputationScore?: number;
+    badges?: string[];
   };
+  setProfile?: (p: any) => void;
 }
 
 const API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || '';
@@ -138,7 +147,7 @@ function Directions({ destination, origin, onRouteFound }: { destination: google
   return null;
 }
 
-export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
+export default function RadarSekitarView({ profile, setProfile }: RadarSekitarViewProps) {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const prevIncidentsLength = useRef(0);
   const [selectedIncidentInfo, setSelectedIncidentInfo] = useState<any>(null);
@@ -148,6 +157,12 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
   const [routeInfo, setRouteInfo] = useState<any>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [userLocation, setUserLocation] = useState({ lat: -7.250444, lng: 112.768845 });
+
+  // Celebration state for gamification feedback
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [earnedXP, setEarnedXP] = useState(0);
+  const [unlockedBadge, setUnlockedBadge] = useState<string | null>(null);
+  const [levelUp, setLevelUp] = useState(false);
 
   const [showShelters, setShowShelters] = useState(false);
   const [showHospitals, setShowHospitals] = useState(false);
@@ -356,7 +371,61 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
         setIncidents(prev => prev.map(inc => inc.id === id ? { ...inc, status: 'TERTANGANI' } : inc));
         setIsNavigating(false);
         setActiveIncidentId(null);
-        toast.success("Bantuan selesai! Terima kasih.");
+        
+        // Award gamified XP, Level and Badges!
+        if (setProfile && profile) {
+          const currentXp = (profile.xp || 180) + 60;
+          const currentMissions = (profile.missionsCompleted || 2) + 1;
+          let level = profile.level || 2;
+          let didLevelUp = false;
+          
+          // formula: level * 150 turns to next level
+          if (currentXp >= level * 150) {
+            level += 1;
+            didLevelUp = true;
+          }
+          
+          const activeBadges = [...(profile.badges || ["respon_cepat", "mitra_siaga"])];
+          let earnedBadgeThisTime = null;
+          
+          // On 3rd mission, unlock 'pemberantas_hoaks' badge
+          if (currentMissions >= 3 && !activeBadges.includes("pemberantas_hoaks")) {
+            activeBadges.push("pemberantas_hoaks");
+            earnedBadgeThisTime = "Perisai Kebenaran";
+          }
+          
+          const newProfileData = {
+            ...profile,
+            xp: currentXp,
+            level: level,
+            missionsCompleted: currentMissions,
+            reputationScore: Math.min(100, (profile.reputationScore || 98) + 1),
+            badges: activeBadges
+          };
+
+          setProfile(newProfileData);
+
+          // Update firestore
+          if (auth.currentUser) {
+            try {
+              const userRef = doc(db, 'users', auth.currentUser.uid);
+              updateDoc(userRef, {
+                xp: currentXp,
+                level: level,
+                missionsCompleted: currentMissions,
+                reputationScore: newProfileData.reputationScore,
+                badges: activeBadges
+              }).catch(e => console.warn(e));
+            } catch (err) {}
+          }
+          
+          setEarnedXP(60);
+          setUnlockedBadge(earnedBadgeThisTime);
+          setLevelUp(didLevelUp);
+          setShowCelebration(true);
+        } else {
+          toast.success("Bantuan selesai! Terima kasih.");
+        }
       }
     } catch (err) {}
   };
@@ -397,6 +466,9 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
       lat: lat,
       lng: lng,
       ringkasan: inc.ringkasan_masalah,
+      valid: inc.valid,
+      confidence_score: inc.confidence_score,
+      alasan_verifikasi: inc.alasan_verifikasi,
       reporterName: inc.reporter_name || inc.reporterName || 'Warga',
       reporterUid: inc.reporter_uid || inc.reporterUid,
       rescuer: inc.rescuer
@@ -477,7 +549,7 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
               <AdvancedMarker position={userLocation}>
                 <div className="flex items-center justify-center relative animate-pulse">
                   <div className="absolute w-12 h-12 rounded-full bg-red-500/40 animate-ping" />
-                  <div className="w-6 h-6 bg-[#BA1A20] rounded-full border-[3px] border-white shadow-xl z-10 flex items-center justify-center animate-pulse" style={{ transform: 'rotate(45deg)' }}>
+                  <div className="w-6 h-6 bg-[#BA1A20] rounded-full border-[3px] border-white shadow-xl z-20 flex items-center justify-center animate-pulse" style={{ transform: 'rotate(45deg)' }}>
                     <div className="w-2.5 h-2.5 bg-white rounded-sm" />
                   </div>
                 </div>
@@ -496,6 +568,7 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
         {/* Action Bottom Sheet Controls */}
         <div className="bg-white dark:bg-zinc-900 pb-safe pt-3 px-6 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_24px_rgba(0,0,0,0.5)] rounded-t-3xl z-10 shrink-0 border-t border-neutral-200 dark:border-zinc-800 relative">
            <div className="w-12 h-1 bg-neutral-300 dark:bg-zinc-700 rounded-full mx-auto mb-4"></div>
+           
            <div className="flex flex-col gap-3 pb-6 max-w-md mx-auto">
               {activeIncidentId && !activeIncidentId.startsWith('shelter') && !activeIncidentId.startsWith('hosp') ? (
                 <>
@@ -842,10 +915,10 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
                 return (
                   <div key={idx} 
                     onClick={() => setSelectedIncidentInfo(item)}
-                    className="bg-gradient-to-br from-red-50 to-white dark:from-zinc-900/90 dark:to-zinc-950 p-5 rounded-2xl shadow-[0_8px_30px_rgba(239,68,68,0.08)] border-2 border-red-500/30 dark:border-red-500/20 flex flex-col gap-4 hover:shadow-[0_12px_36px_rgba(239,68,68,0.12)] transition-all cursor-pointer group relative overflow-hidden text-left"
+                    className="bg-white dark:bg-zinc-950 p-5 rounded-2xl shadow-[0_8px_30px_rgba(239,68,68,0.08)] border-2 border-red-500/30 dark:border-red-500/20 flex flex-col gap-4 hover:shadow-[0_12px_36px_rgba(239,68,68,0.12)] transition-all cursor-pointer group relative overflow-hidden text-left"
                   >
                     {/* Top Animated Pulse Indicator line */}
-                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-red-600 via-amber-500 to-red-600 animate-pulse" />
+                    <div className="absolute top-0 left-0 w-full h-1.5 bg-red-600 animate-pulse" />
                     
                     {/* Unique Identifier Header */}
                     <div className="flex items-center justify-between mt-1">
@@ -1142,14 +1215,33 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
                     {selectedIncidentInfo.ringkasan || "Tidak ada detail yang diberikan."}
                  </p>
                </div>
+
+               {selectedIncidentInfo.valid !== undefined && (
+                 <div>
+                   <span className="text-[10px] text-neutral-400 block mb-0.5 uppercase tracking-wider">Verifikasi Keaslian Laporan</span>
+                   <div className={`flex flex-col gap-1 p-3 rounded-xl border ${selectedIncidentInfo.valid ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-300' : 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-300'}`}>
+                     <div className="flex items-center gap-2">
+                       <span className="material-symbols-outlined text-sm font-bold">{selectedIncidentInfo.valid ? 'verified_user' : 'gpp_bad'}</span>
+                       <span className="text-xs font-bold font-sans tracking-tight">
+                         {selectedIncidentInfo.valid ? `Korban Terverifikasi Nyata (Confidence: ${selectedIncidentInfo.confidence_score || '90'}%)` : 'Tingkat Keaslian Laporan Rendah'}
+                       </span>
+                     </div>
+                     {selectedIncidentInfo.alasan_verifikasi && (
+                       <p className="text-[10px] opacity-90 leading-relaxed font-sans mt-0.5" style={{ marginLeft: "28px" }}>
+                         {selectedIncidentInfo.alasan_verifikasi}
+                       </p>
+                     )}
+                   </div>
+                 </div>
+               )}
                
                {selectedIncidentInfo.type !== 'POSKO EVAKUASI' && selectedIncidentInfo.type !== 'FASILITAS MEDIS' ? (
                  <div>
                    <span className="text-[10px] text-neutral-400 block mb-0.5 uppercase tracking-wider">Kontak Darurat Pelapor</span>
                    <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-zinc-950 border border-neutral-200 dark:border-zinc-850 rounded-xl">
                       <div className="flex flex-col">
-                         <span className="font-bold text-xs text-neutral-800 dark:text-white">Keluarga</span>
-                         <span className="text-[11px] text-neutral-500">0812-XXXX-XXXX</span>
+                         <span className="font-bold text-xs text-neutral-800 dark:text-white font-sans">Keluarga</span>
+                         <span className="text-[11px] text-neutral-500 font-mono">0812-XXXX-XXXX</span>
                       </div>
                       <button className="w-8 h-8 rounded-full bg-red-100 text-[#BA1A20] flex items-center justify-center" onClick={() => window.location.href = "tel:08123456789"}>
                          <span className="material-symbols-outlined text-sm">call</span>
@@ -1188,6 +1280,94 @@ export default function RadarSekitarView({ profile }: RadarSekitarViewProps) {
                  Tampilkan Rute ke Lokasi
                </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gamifikasi Misi Selesai / Celebration Modal Overlay */}
+      {showCelebration && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-neutral-200 dark:border-zinc-800 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl p-6 text-center animate-scale-up relative">
+            
+            {/* Ambient burst rays */}
+            <div className="absolute top-0 inset-x-0 h-40 bg-amber-500/10 pointer-events-none" />
+
+            {/* Glowing Big Badge Icon */}
+            <div className="w-16 h-16 bg-amber-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_8px_30px_rgba(245,158,11,0.3)] border-2 border-white relative animate-pulse">
+              <span className="material-symbols-outlined text-[32px] filled">award_star</span>
+            </div>
+
+            <span className="text-[10px] font-black tracking-widest text-neutral-400 dark:text-zinc-500 uppercase block mb-1 font-sans">
+              BENEVOLENCE & VALOR
+            </span>
+            <h3 className="text-base font-black text-neutral-900 dark:text-white uppercase tracking-tight font-sans">
+              Misi Penyelamatan Selesai!
+            </h3>
+            
+            <p className="text-[11px] leading-relaxed text-neutral-500 dark:text-zinc-400 font-medium px-2 mt-2 font-sans">
+              Terima kasih atas dedikasi dan kesiagaan Anda. Anda telah berhasil merespon & menyelesaikan pertolongan taktis warga dengan aman.
+            </p>
+
+            {/* Score Grid */}
+            <div className="bg-neutral-50 dark:bg-zinc-950 p-4 rounded-2xl border border-neutral-100 dark:border-zinc-800/80 my-5 flex flex-col gap-3 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-neutral-600 dark:text-zinc-400 font-sans">XP Diperoleh:</span>
+                <span className="bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-black text-xs px-2.5 py-1 rounded-lg border border-amber-500/20 font-mono flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">bolt</span>
+                  +{earnedXP} XP
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-dashed border-neutral-200 dark:border-zinc-800/80 pt-2.5">
+                <span className="text-xs font-bold text-neutral-600 dark:text-zinc-400 font-sans">Total Sembuh/Aman:</span>
+                <span className="text-neutral-950 dark:text-white font-mono font-black text-xs bg-neutral-100 dark:bg-zinc-800 px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-zinc-700">
+                  {profile?.missionsCompleted} Kali Sukses
+                </span>
+              </div>
+            </div>
+
+            {/* Level Up alert */}
+            {levelUp && (
+              <div className="bg-amber-600 text-white rounded-2xl p-3.5 mb-5 border border-amber-400/20 text-center flex flex-col items-center gap-1 shadow-md">
+                <div className="flex items-center gap-1.5 justify-center">
+                  <span className="material-symbols-outlined text-[18px] text-white">upgrade</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">KUALIFIKASI MENINGKAT!</span>
+                </div>
+                <p className="text-xs font-black uppercase tracking-normal">
+                  Saga Ksatria Level {profile?.level}
+                </p>
+                <p className="text-[9.5px] font-medium text-white/90 leading-tight mt-0.5">
+                  Status Anda ditingkatkan menjadi ksatria pelindung utama.
+                </p>
+              </div>
+            )}
+
+            {/* Unlocked Badge Section */}
+            {unlockedBadge && (
+              <div className="bg-teal-50 dark:bg-teal-950/20 rounded-2xl p-3.5 mb-5 border border-teal-200/50 dark:border-teal-900/30 text-center flex flex-col items-center gap-1.5">
+                <div className="w-8 h-8 bg-teal-500 text-white rounded-full flex items-center justify-center">
+                  <span className="material-symbols-outlined text-sm font-black text-white text-base">shield</span>
+                </div>
+                <div className="text-center">
+                  <span className="text-[9.5px] font-black text-teal-600 dark:text-teal-400 uppercase tracking-widest block leading-none">
+                    LENCANA BARU DIKLAIM
+                  </span>
+                  <p className="text-xs font-black text-neutral-800 dark:text-white uppercase tracking-tight mt-1">
+                    {unlockedBadge}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <button 
+              onClick={() => {
+                setShowCelebration(false);
+                setUnlockedBadge(null);
+                setLevelUp(false);
+              }}
+              className="w-full bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-950 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer shadow-md font-sans"
+            >
+              Klaim Nilai Reputasi
+            </button>
           </div>
         </div>
       )}

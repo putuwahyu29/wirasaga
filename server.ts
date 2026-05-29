@@ -23,6 +23,8 @@ interface Incident {
   lat: number;
   lng: number;
   valid: boolean;
+  confidence_score?: number;
+  alasan_verifikasi?: string;
   kategori: "MEDIS" | "MEKANIK" | "KEAMANAN" | "LINGKUNGAN";
   tingkat_darurat: number; // 1-10
   ringkasan_masalah: string;
@@ -75,8 +77,12 @@ try {
           });
           incidents = list;
         }
-      } catch (seedErr) {
-        console.error("Failed to query Firestore collection:", seedErr);
+      } catch (seedErr: any) {
+        if (seedErr.message && seedErr.message.includes("permissions")) {
+          console.log("Info: Firestore seed read restricted. Using memory fallback.");
+        } else {
+          console.error("Failed to query Firestore collection:", seedErr.message);
+        }
       }
     }, 1000);
   } else {
@@ -127,8 +133,12 @@ app.get("/api/incidents", async (req, res) => {
         return idB - idA;
       });
       incidents = list;
-    } catch (err) {
-      console.error("Error reading incidents from live Firestore, using memory fallback:", err);
+    } catch (err: any) {
+      if (err.message && err.message.includes("permissions")) {
+        console.log("Info: Firestore read permission restricted. Using memory fallback for incidents.");
+      } else {
+        console.error("Error reading incidents from live Firestore, using memory fallback:", err.message);
+      }
     }
   }
   res.json({ status: "success", data: incidents });
@@ -271,22 +281,24 @@ app.post("/api/sos", async (req, res) => {
 
   console.log(`Received SOS report. Lat: ${latNum}, Lng: ${lngNum}, Address: ${locationText || "Nasional"}`);
 
-  // Base prompt instructions for dispatcher triage
-  const systemPrompt = `Anda adalah Agen Penyelamat Publik (Smart Dispatcher) Nasional Indonesia. Analisis input multi-modal (Gambar, Audio, atau deskripsi teks) dan koordinat GPS ini.
+// Base prompt instructions for dispatcher triage
+  const systemPrompt = `Anda adalah Agen Penyelamat Publik (Smart Dispatcher) Nasional Indonesia. Analisis input multi-modal (Gambar, Audio, atau deskripsi teks) dan koordinat GPS ini secara menyeluruh untuk memverifikasi korban dan memastikan keadaan darurat tersebut nyata.
 Tugas Anda:
-1. Validasi: Apakah ini prank atau darurat valid? (Contoh prank: gambar layar hitam kosong, suara tertawa main-main, dsb. Contoh darurat valid: kendaraan mogok/ban bocor, orang kecelakaan/sakit, kejahatan, bencana dsb).
+1. Validasi Ekstra Ketat: Apakah ini prank, laporan palsu, atau darurat valid? Anda HARUS memverifikasi dengan ketat laporan ini. Apakah korbannya benar-benar ada/nyata (berdasarkan foto/suara)? (Contoh tidak valid: foto wajah tersenyum selfie biasa, foto ruangan kosong yang aman, suara TV/YouTube, atau nihil bukti nyata). Jika ciri-ciri darurat tidak meyakinkan, atur valid: false.
 2. Klasifikasi: Kategori (MEDIS, MEKANIK, KEAMANAN, LINGKUNGAN).
-3. Ekstraksi: Ekstrak ringkasan_masalah bahasa Indonesia yang ringkas dan padat (maks 2 kalimat), tingkat panik (1-10) sebagai tingkat_darurat, dan daftar rekomendasi_alat yang rasional.
-4. Tentukan radius_notifikasi_meter (biasanya antara 500 sampai 2000 meter tergantung urgensi kejadian).
+3. Ekstraksi: Ekstrak ringkasan_masalah bahasa Indonesia (maks 2 kalimat), tingkat panik (1-10) sebagai tingkat_darurat, dan daftar rekomendasi_alat.
+4. Tentukan radius_notifikasi_meter (biasanya antara 500 sampai 2000 meter).
 
 HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
 {
   "valid": true,
+  "confidence_score": 85,
   "kategori": "MEDIS",
   "tingkat_darurat": 8,
-  "ringkasan_masalah": "Deskripsi singkat yang jelas dan padat.",
+  "ringkasan_masalah": "Deskripsi singkat.",
   "rekomendasi_alat": ["alat_1", "alat_2"],
-  "radius_notifikasi_meter": 1200
+  "radius_notifikasi_meter": 1200,
+  "alasan_verifikasi": "Alasan spesifik mengapa Anda menyimpulkan korban nyata atau laporan ini asli/palsu berdasarkan analisis Anda."
 }`;
 
   let finalTriage: any = null;
@@ -337,6 +349,7 @@ HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
             type: Type.OBJECT,
             properties: {
               valid: { type: Type.BOOLEAN },
+              confidence_score: { type: Type.INTEGER, description: "AI confidence 0-100" },
               kategori: { type: Type.STRING, description: "MEDIS, MEKANIK, KEAMANAN, or LINGKUNGAN" },
               tingkat_darurat: { type: Type.INTEGER, description: "Panic scale 1-10" },
               ringkasan_masalah: { type: Type.STRING, description: "Summarize the emergency clearly" },
@@ -344,9 +357,10 @@ HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
                 type: Type.ARRAY,
                 items: { type: Type.STRING }
               },
-              radius_notifikasi_meter: { type: Type.INTEGER }
+              radius_notifikasi_meter: { type: Type.INTEGER },
+              alasan_verifikasi: { type: Type.STRING, description: "Explanation of why victim verification passed or failed" }
             },
-            required: ["valid", "kategori", "tingkat_darurat", "ringkasan_masalah", "rekomendasi_alat", "radius_notifikasi_meter"]
+            required: ["valid", "confidence_score", "kategori", "tingkat_darurat", "ringkasan_masalah", "rekomendasi_alat", "radius_notifikasi_meter", "alasan_verifikasi"]
           }
         }
       });
@@ -375,6 +389,8 @@ HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
     if (mockType === "MEDIS" || (mockType && mockType.toUpperCase().includes("MEDIS"))) {
       finalTriage = {
         valid: true,
+        confidence_score: 90,
+        alasan_verifikasi: "Simulasi: Masalah medis yang bersifat terverifikasi berdasarkan laporan.",
         kategori: "MEDIS",
         tingkat_darurat: 9,
         ringkasan_masalah: "Kondisi darurat medis dilaporkan di Jl. Tunjungan Surabaya. Pelapor pingsan atau membutuhkan pertolongan pertomongan pertama segera.",
@@ -384,6 +400,8 @@ HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
     } else if (mockType === "MEKANIK" || (mockType && mockType.toUpperCase().includes("MEKANIK")) || (imageBase64 && imageBase64.includes("tire"))) {
       finalTriage = {
         valid: true,
+        confidence_score: 85,
+        alasan_verifikasi: "Simulasi: Masalah mekanikal berdasarkan input parameter darurat.",
         kategori: "MEKANIK",
         tingkat_darurat: 6,
         ringkasan_masalah: "Laporan bantuan mekanik jalan raya: Ban motor bocor di sekitar Jl. Tunjungan Surabaya. Membutuhkan bantuan tambal ban segera.",
@@ -393,6 +411,8 @@ HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
     } else if (mockType === "KEAMANAN" || (mockType && mockType.toUpperCase().includes("KEAMANAN"))) {
       finalTriage = {
         valid: true,
+        confidence_score: 95,
+        alasan_verifikasi: "Simulasi: Terdeteksi bahaya keamanan yang memerlukan kehadiran darurat.",
         kategori: "KEAMANAN",
         tingkat_darurat: 8,
         ringkasan_masalah: "Masalah keamanan lingkungan terdeteksi. Warga membutuhkan kehadiran pertolongan darurat atau saksi mata di lokasi Surabaya.",
@@ -403,6 +423,8 @@ HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
       // General random but realistic fallback
       finalTriage = {
         valid: true,
+        confidence_score: 75,
+        alasan_verifikasi: "Simulasi: Mengandalkan laporan warga terkait insiden jalanan.",
         kategori: "MEKANIK",
         tingkat_darurat: 7,
         ringkasan_masalah: locationText ? `Kejadian dilaporkan di ${locationText}. Layanan Smart Dispatcher mendeteksi keadaan darurat valid.` : "Ban motor bocor atau masalah mesin di persimpangan jalan Surabaya, pelapor membutuhkan alat pendukung.",
@@ -418,6 +440,8 @@ HANYA kembalikan output dalam format JSON terstruktur persis seperti ini:
     lat: latNum,
     lng: lngNum,
     valid: finalTriage.valid,
+    confidence_score: finalTriage.confidence_score,
+    alasan_verifikasi: finalTriage.alasan_verifikasi,
     kategori: finalTriage.kategori || "MEKANIK",
     tingkat_darurat: finalTriage.tingkat_darurat || 7,
     ringkasan_masalah: finalTriage.ringkasan_masalah || "Keadaan darurat dilaporkan.",

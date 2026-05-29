@@ -1,109 +1,110 @@
-# Wirasaga - Multi-modal AI Emergency Response Radar
+# Wirasaga - Multi-modal AI Emergency Response Platform
 
 Wirasaga adalah platform siaga darurat, pertolongan pertama, dan pemetaan bencana komprehensif terintegrasi yang dirancang khusus untuk masyarakat Indonesia. Aplikasi ini menggabungkan kecanggihan **Kecerdasan Buatan Multi-modal (AI Triage)**, ketangguhan **Mode Offline Mandiri**, serta kecepatan **koordinasi relawan berbasis komunitas** untuk menyelamatkan jiwa dalam situasi kritis.
 
 ---
 
 ## 🎨 Visi & Konsep Desain
-Wirasaga dibangun dengan prinsip **Aesthetic Actionability**. Antarmuka dikombinasikan antara kegunaan taktis tingkat tinggi dengan palet warna kontras modern (**Cosmic Dark Slate** dan aksen **Emerald Green / Urgent Red**). Tata letak diatur secara presisi untuk kenyamanan mata saat panik, mendukung visual malam, kegunaan satu tangan (*one-handed operation*), dan aksesibilitas cepat (*high touch target*).
+Wirasaga dibangun dengan prinsip **Aesthetic Actionability**. Antarmuka dikombinasikan antara kegunaan taktis tingkat tinggi dengan palet warna kontras modern (**Cosmic Dark Slate** dan aksen **Emerald Green / Urgent Red**). Tata letak diatur secara presisi untuk kenyamanan mata saat panik, mendukung visual malam, kegunaan satu tangan (*one-handed operation*), perlindungan *touch-action* (*anti-select* secara menyeluruh di level framework saat menahan jemari menekan tombol darurat SOS), dan aksesibilitas *high-touch target*.
 
 ---
 
 ## 🛠️ Fitur Utama & Keunggulan
 
-### 1. Smart SOS & Autonomous AI Triage
-*   **Media Multi-modal**: Pengguna dapat mengirimkan sinyal bahaya (SOS) dengan lampiran gambar situasi atau rekaman audio.
-*   **Gemini 3.5 Flash Dispatcher**: Menggunakan SDK generasi terbaru `@google/genai` yang berjalan aman di sisi server (`server.ts`). AI secara mandiri memvalidasi laporan (mengeliminasi prank), mendeteksi kategori (MEDIS, MEKANIK, KEAMANAN, LINGKUNGAN), menaksir tingkat keparahan (skala 1-10), merekomendasikan alat darurat yang harus dibawa oleh penolong, dan mereferensikan radius evakuasi.
-*   **Bypass Offline Pintar**: Ketika kunci API atau koneksi internet terganggu, server secara cerdas mengaktifkan algoritma simulasi lokal (*heuristic matching engine*) agar sistem triage tetap menghasilkan keluaran logis bagi penyelamat di lokasi.
+### 1. Smart SOS, Auto-Crash Detection & Anti-Prank
+*   **Deteksi Guncangan Ekstrem (Crash / Heavy Fall Detection)**: Memanfaatkan sensor akselerometer perangkat (*DeviceMotionEvent*) untuk mendeteksi manakala perangkat mengalami jatuh keras (tabrakan). Algoritma menyaring getaran biasa, namun seketika merespons guncangan ekstrem dengan meluncurkan hitungan mundur 10 detik SOS layar penuh secara otonom (Autopilot Darurat).
+*   **Peringatan Hukum (Anti-Prank)**: Mengingat rawannya platform laporan darurat dari pemalsuan telepon iseng, fitur SOS dilindungi lapisan psikologis peringatan pidana hukum ITE yang terintegrasi modul simulasi senyap perekaman multimedia otomatis di latar belakang.
+*   **Media Multi-modal & Pencegahan Ketidaksengajaan**: Pengguna memerlukan upaya lebih (*hold 2-detik* tombol utama dan 5 detik countdown opsional batal) agar SOS tak sengaja meluncur.
+*   **Gemini AI Dispatcher**: Menggunakan SDK generasi terbaru `@google/genai` sisi server. AI memvalidasi laporan teks guncangan atau suara kepanikan, memberikan skoring metrik situasi kedaruratan (1-10), menglasifikasi potensi klasifikasi medis/keamanan/lingkungan dan memandu relawan via radar.
 
-### 2. Kartu Medis Digital ICE (In Case of Emergency) - *Offline-First*
-*   **Prinsip Desain Tanpa Dummy**: Dibuat bersih tanpa pengotor data palsu/dummy. Jika pengguna baru mengaktifkan platform, sistem akan langsung menyajikan layar inisialisasi yang intuitif untuk mengisikan profil darurat yang sebenarnya.
-*   **Offline-First & Privacy-Focused**: Rekam medis darurat (Golongan Darah, Alergi Obat/Makanan, Riwayat Penyakit Kronis, Kontak Keluarga) disimpan secara eksklusif dalam **Local Storage** gawai. Data sensitif ini tidak dikirim ke server pusat untuk memastikan data selalu dapat diakses seketika sekalipun jaringan seluler mati total (*blank spot*), sekaligus memproteksi hak privasi medis pengguna.
+### 2. Radar Komunitas Darurat & "Buddy System"
+*   **Pemetaan Papan Radar 360 (Google Maps)**: Memvisualisasikan posisi tepat seluruh letupan insiden aktif publik ke dalam *viewport* presisi 3D di peta, merinci titik pangkalan Shelter/Titik Kumpul dan Rumah Sakit rujukan terekomendasi.
+*   **Buddy System Malam Hari & Relawan Siaga**: Memungkinkan penugasan *Pairing Protocol*. Korban dijemput bola. Memasangkan sistem perisai relawan kepada insan terpapar bahaya. (Simulasi pendampingan medis / sekuriti).
 
-### 3. Sirene Darurat & Morse Signal Generator
-*   **Audio Sirene Taktis**: Menyediakan 4 tipe alarm darurat (Ambulans, Alarm Nuklir, Air Raid, dan Sirene Polisi).
-*   **Web Audio API (No-Dependency)**: Dibangun tanpa menggunakan file `.mp3` atau `.wav` fisik. Suara disintesis langsung menggunakan sirkuit osilator terintegrasi pada browser. Hal ini memastikan sirene dapat berbunyi seketika tanpa perlu proses pengunduhan audio yang rawan gagal saat internet buruk.
-*   **Flash Sinyal Morse**: Memanfaatkan ritme kedipan layar berlatar belakang kontras tinggi berpola kode Morse internasional `··· --- ···` (S-O-S) untuk menarik pertolongan visual di kondisi gelap gulita atau reruntuhan bencana.
+### 3. Panggilan Darurat Nasional & Jaringan Awan Kontak ICE
+*   **Sentral Operator Darurat 1-Tap**: Direktori gesit merujuk Pos Polisi (110), Evakuasi Ambulan Gawat (118/119), SAR (115), dan Penanganan Bencana BNPB(112). 
+*   **Node Cloud Kontak Pribadi Terpaut (Firebase)**: Kerabat keluarga didata murni ke dalam koleksi aman Cloud (`ice_contacts`) Firestore yang dipayungi akun Login Google kredensial (Auth). HP Anda hilang? Pinjam HP Satpam/Gojek, Login Google, tarik nomor istri sedia kala, instan!
 
-### 4. Radar BMKG & Deteksi Gempa Terkini
-*   Sinkronisasi dinamis dengan data gempa terbaru BMKG. Menampilkan informasi magnitudo, kedalaman, koordinat pusat gempa, serta tingkat potensi tsunami secara real-time demi memudahkan mitigasi mandiri.
+### 4. Kartu Medis Pribadi (Offline First Proxy)
+*   **Privasi Akses Instan (Tanpa Kendala 4G)**: Kartu identitas medis vital (Golongan Darah, Parameter Alergi fatal antibiotik/makanan, Riwayat Operasi) secara eksklusif dikarantinakan 100% pada sandbox Memori Lokal *Browser* (`LocalStorage`). Bebas bocor Data Breach server awan skala besar, hadir siap di detik ke-1 paramedis menanyai "Korban ada alergi P3K ga?!" biarpun gawai ada di pegunungan *No Service*.
 
-### 5. Koleksi Panduan P3K & CPR Companion
-*   Panduan digital penanganan luka, cedera, patah tulang, gigitan hewan berbisa, dan serangan jantung. Dilengkapi **metronom audio CPR (RJP)** berketukan stabil (100–120 bpm) untuk membantu ritme kompresi dada yang presisi saat menolong korban henti jantung.
+### 5. Sintesis Audio Sirene Web & SOS Strobo Cahaya
+*   **Generator Audio Independen Murni Web**: Generator audio gelombang sirkuit sinus menggaungkan Nada Ambulans, Alert Nuklir, dan Air Raid murni 0MB tanpa perlu menunggu MP3/WAV selesai *download buffering*. Merobek bising jalanan secara nyata, memecahkan sekat hening seketika sirine di-taping *On*.
+*   **Modulator Suar Visual (Flash)**: Gelombang SOS strobo menerjamahkan sandi ketukan Internasional Morse `··· --- ···` ke dalam lampu latar / nyala-pijar intens.
+
+### 6. Relai Dini Bencana Patahan Gempa BMKG
+*   Terpusat mengekstrak informasi API parameter gempa paling mutakhir (Magnitudo, Kedalaman asimptotis hiposentrum). Terdapat pengingat *Trigger* bilamana gelombang ombak darat punya "Potensi Tsunami" di ambang batas evakuasi masif. 
+
+### 7. Kit Pertolongan Darurat Kehidupan & Metronom Asisten CPR
+*   Buku survival pintar memuat manual resusitasi. Dibumbui piranti lunak generator ketukan (*Metronome engine*) berkunci padat di kecepatan taktis 110 ketukan per menit (BPM) untuk meregulasi laju pemompaan Kompresi Dada (RJP) oleh penyelamat awam dengan daya hidup paling mujarab bagi pasien Jantung berhenti berdenyut.
 
 ---
 
-## 🗄️ Arsitektur Integrasi & Sinkronisasi Data
+## 🗄️ Infrastruktur Pustaka Backend / Hybrid Cloud
 
-Wirasaga membagi pengelolaan data dalam dua piringan arsitektur yang dirancang secara saksama:
+Pemetaan entitas dibagi memisahkan batas domain cloud dan persistent offline demi keamanan dan redundansi absolut:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      WIRASAGA APP (UI)                      │
+│                   WIRASAGA APP (React/Vite)                 │
 └──────────────┬───────────────────────────────┬──────────────┘
                │                               │
                ▼                               ▼
-     [ OFFLINE STORAGE ]             [ FIREBASE FIRESTORE ]
+     [ BROWSER LOCAL STORAGE ]        [ FIREBASE FIRESTORE ]
  ┌───────────────────────────┐   ┌───────────────────────────┐
- │ - Kartu Medis Digital ICE │   │ - Kontak Keluarga Darurat │
- │ - Pengaturan Preferensi   │   │ - Laporan Insiden Aktif   │
- │ - Log Cache BMKG          │   │ - Koordinat Lokasi Relawan│
+ │ - Kartu Medis Sensitif    │   │ - Daftar Kontak Keluarga  │
+ │ - Tembolok Log BMKG       │   │   (Terkait Identitas UID) │
+ │ - Setelan Preferensi Tema │   │ - Pemetaan Kordinat Radar │
  └───────────────────────────┘   └───────────────────────────┘
 ```
 
-1.  **Firestore (Cloud Storage)**:
-    *   **Kontak ICE Keluarga**: Disimpan di Firestore (koleksi `ice_contacts`) yang diikat aman dengan Firebase Auth UUID pengguna. Memungkinkan pemulihan otomatis saat pengguna berganti gawai.
-    *   **Basis Laporan Radar Kejadian**: Data kontribusi publik (*user generated reports*) disimpan dalam koleksi insiden (`incidents`) di mana koordinat lintang-bujur dipetakan secara real-time ke peta siaga relawan yang mencakup radar pertolongan terdekat.
-2.  **Browser LocalStorage (Local Storage)**:
-    *   Dipilih khusus untuk data personal seperti profil medis **Digital Medical ID**. Ini memastikan data dapat diakses instan sewaktu gawai dalam status *airplane mode*, kehabisan kuota, atau di tengah bencana gempa di mana jalur operator seluler mati.
-
 ---
 
-## 🚀 Panduan Pengembangan Lokal
+## 🚀 Panduan Membangun Pangkalan (Developer)
 
-### Prasyarat
-*   Node.js (versi 18 atau lebih baru)
-*   NPM
+### Prasyarat Terminal
+*   Engine: Node.js `^18.0` atau terbaru. 
+*   Package Resolver: `npm` 
 
-### Langkah Instalasi
+### Aliran Integrasi *Pipeline*
 
-1.  **Kloning Repositori**:
+1.  **Pengadaan Repositori & Klon**:
     ```bash
     git clone <repository_url>
     cd wirasaga
     ```
 
-2.  **Konfigurasi Environment**:
-    Salin file `.env.example` ke `.env` dan isikan kredensial yang relevan:
+2.  **Karantina Variabel Lingkungan Siber**:
+    Buat bingkai env lokal dari stensil:
     ```bash
     cp .env.example .env
     ```
-    Isi variabel berikut:
-    *   `GEMINI_API_KEY`: Kunci API Google Gemini untuk analisis triage dan chatbot medis.
-    *   `GOOGLE_MAPS_PLATFORM_KEY`: Kunci API Google Maps untuk pemetaan radar kejadian.
+    Populasikan dua permata Kunci Layanan tersemat:
+    *   `GEMINI_API_KEY`: Google GenAI (Gemini) Token Pemasok Tenaga Berpikir Asisten. 
+    *   `GOOGLE_MAPS_PLATFORM_KEY`: Tali rantai kunci penyedia Layanan *Maps Javascript API*, dan pelacak tempat (Places API) valid.
 
-3.  **Persiapkan Kredensial Firebase**:
-    Letakkan kredensial web app Firebase Anda dalam file `firebase-applet-config.json` pada direktori root proyek.
+3.  **Kredensiasi Keamanan Layanan Firebase**:
+    Impor sertifikat Kredensial *Client Database Firebase*. Tuangkan ke bilik root repo sebagai fail berkode `firebase-applet-config.json`. Selaraskan Firestore agar daftar SOS Cloud memupuk.
 
-4.  **Instalasi Dependensi**:
+4.  **Materialisasi Modul Node**:
     ```bash
     npm install
     ```
 
-5.  **Jalankan Server Pengembangan**:
+5.  **Menyalakan Mesin Pemandu Pengembangan**:
     ```bash
     npm run dev
     ```
-    Aplikasi akan berjalan pada port default `3000` (http://localhost:3000) yang mengintegrasikan React SPA (Vite) dengan server Express (server.ts) secara harmonis.
+    Injeksi Express *Middlewares* dengan arsitektur perutean simfoni menyatukan komutator React UI pada Port Server Universal `3000` (http://localhost:3000).
 
-6.  **Kompilasi Produksi (Build)**:
+6.  **Kompilasi Fabrikasi Skala Produksi (*Baking*)**:
     ```bash
     npm run build
     npm run start
     ```
-    Perintah build akan membundel React aplikasi ke folder `dist` dan mengompilasi server TypeScript ke `dist/server.cjs` menggunakan `esbuild` demi kinerja cold-start terbaik dan kompatibilitas Node.js penuh.
+    Operasional pengompilasian menggunakan arsitektur *esbuild* mendesain ulang skrip typescript tebal (*Server.ts*) menjadi raksasa satu-baris murni ringkas (`server.cjs`). Cold Start menekan hingga hitungan nol mikro detik di gerbang Docker Cloud Kontainer.
 
 ---
 
-## 🛡️ Kebijakan Batasan (Guardrails AI)
-Chatbot Asisten AI dibekali sistem instruksi yang ketat untuk menolak permintaan di luar ranah penyelamatan, medis, keamanan, krisis, dan kegagalan mekanik jalan raya, guna menjamin fokus fungsionalitas platform sebagai alat penyelamat khalayak umum.
+## 🛡️ Rantai Pasok Penjaga (AI Guardrails Mechanism)
+Wirasaga AI Agen (`Siaga-Bot`) diberkahi dengan filter pemburu negatif (*Hard Guardrails*) bertemakan Paramedis Taktis, secara agnostik akan memberangus atau membungkam seruan percakapan yang mendistorsi fungsi medik darurat / lalu lintas seperti; Resep membuat kue, candaan romansa, permintaan kode sumber terlarang, nasihat relasi toksik, serta politik dan ras. Mesin AI memproteksi bahwa asisten senantiasa netral, cepat, serius demi kepentingan penyelamatan kemanusiaan.

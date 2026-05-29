@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import TermsPrivacyModal from './TermsPrivacyModal';
 
 interface SettingsViewProps {
   onEditProfile: () => void;
@@ -24,6 +25,13 @@ export default function SettingsView({
   setTheme
 }: SettingsViewProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'terms' | 'privacy'>('terms');
+
+  const handleOpenModal = (type: 'terms' | 'privacy') => {
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   return (
     <div className="flex-1 overflow-y-auto no-scrollbar pb-32 px-margin-mobile pt-4 space-y-stack-gap-md max-w-lg mx-auto w-full animate-fade-in">
@@ -65,6 +73,157 @@ export default function SettingsView({
             </div>
             <span className="material-symbols-outlined text-on-surface-variant dark:text-zinc-400">chevron_right</span>
           </button>
+        </div>
+      </section>
+
+      {/* Heroic Reputation & Badge Gamification Card */}
+      <section className="bg-surface-container-lowest dark:bg-zinc-900 rounded-[24px] border border-outline-variant/30 dark:border-zinc-800 shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col p-5 gap-4">
+        {/* Card Header with Glowing Hero Tag */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary dark:text-red-500 text-lg">military_tech</span>
+            <h3 className="text-sm font-black uppercase tracking-wider text-on-surface dark:text-zinc-100 font-sans">
+              Reputasi Relawan Heroik
+            </h3>
+          </div>
+          <span className="bg-amber-600 dark:bg-amber-600 text-white font-extrabold text-[8.5px] uppercase tracking-widest px-3 py-1 rounded-full shadow-sm animate-pulse flex items-center gap-1">
+            <span className="material-symbols-outlined text-[10px] filled">gavel</span>
+            SIAGA TANGGUH
+          </span>
+        </div>
+
+        {/* Hero Rank Banner */}
+        <div className="bg-neutral-50 dark:bg-zinc-950 border border-neutral-200/50 dark:border-zinc-800/80 p-4 rounded-2xl flex items-center justify-between gap-3 relative overflow-hidden">
+          {/* Subtle background graphics */}
+          <div className="absolute right-0 bottom-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none transform translate-y-3 translate-x-3">
+            <span className="material-symbols-outlined text-[120px] select-none font-black text-red-500">award_star</span>
+          </div>
+
+          <div className="flex items-center gap-3.5 z-10">
+            <div className="w-12 h-12 rounded-2xl bg-amber-600 text-white flex flex-col items-center justify-center font-sans shadow-md">
+              <span className="text-[10px] font-black uppercase tracking-wider leading-none">LV</span>
+              <span className="text-xl font-black leading-none mt-0.5">{profile.level || 2}</span>
+            </div>
+            <div className="text-left">
+              <span className="text-[10px] font-black text-neutral-400 dark:text-zinc-500 uppercase tracking-widest block leading-3">
+                KUALIFIKASI SAGA
+              </span>
+              <h4 className="text-sm font-black text-neutral-800 dark:text-white uppercase font-sans mt-0.5">
+                {(profile.level || 2) >= 5 ? "Manggala Nusantara" : 
+                 (profile.level || 2) >= 4 ? "Saga Utama" : 
+                 (profile.level || 2) >= 3 ? "Saga Wicaksana" : 
+                 (profile.level || 2) >= 2 ? "Ksatria Siaga" : "Penyelamat Perintis"}
+              </h4>
+              <p className="text-[10px] text-neutral-500 dark:text-zinc-400 font-medium mt-0.5">
+                Respon darurat terpercaya & valid
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Level XP Progress Bar */}
+        <div className="flex flex-col gap-1.5 pl-1">
+          <div className="flex justify-between items-center text-[10px] font-black tracking-wider">
+            <span className="text-neutral-500 dark:text-zinc-400 uppercase">AKUMULASI HERO XP</span>
+            <span className="text-primary dark:text-red-400 font-mono">
+              {profile.xp || 180} / {(profile.level || 2) * 150} XP
+            </span>
+          </div>
+          <div className="w-full h-3 bg-neutral-200 dark:bg-zinc-805 rounded-full overflow-hidden shadow-inner p-0.5">
+            <div 
+              style={{ width: `${Math.min(100, ((profile.xp || 180) / ((profile.level || 2) * 150)) * 100)}%` }}
+              className="h-full rounded-full bg-amber-600 shadow-inner transition-all duration-700" 
+            />
+          </div>
+        </div>
+
+        {/* Hero Core Stats Grid */}
+        <div className="grid grid-cols-2 gap-3 mt-1">
+          <div className="bg-neutral-50/70 dark:bg-zinc-950/40 p-3 rounded-xl border border-neutral-200/40 dark:border-zinc-800/65 text-left flex flex-col gap-1">
+            <span className="text-[9px] font-black uppercase text-neutral-400 dark:text-zinc-500 tracking-wider">
+              MISI TERTANGANI
+            </span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base font-black text-neutral-800 dark:text-white font-mono">
+                {profile.missionsCompleted || 2}
+              </span>
+              <span className="text-[10.5px] font-bold text-neutral-500 dark:text-zinc-450 uppercase">
+                Kasus
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-neutral-50/70 dark:bg-zinc-950/40 p-3 rounded-xl border border-neutral-200/40 dark:border-zinc-800/65 text-left flex flex-col gap-1">
+            <span className="text-[9px] font-black uppercase text-neutral-400 dark:text-zinc-500 tracking-wider">
+              KREDIBILITAS VALIDASI
+            </span>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                {profile.reputationScore || 98}%
+              </span>
+              <span className="text-[10.5px] font-bold text-neutral-500 dark:text-zinc-450 uppercase">
+                Akurasi
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Lencana Kehormatan Badges Section */}
+        <div className="text-left mt-2 border-t border-dashed border-neutral-200 dark:border-zinc-800/80 pt-4">
+          <h4 className="text-[10px] font-black text-neutral-400 dark:text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5 leading-none">
+            <span className="material-symbols-outlined text-[14px]">stars</span>
+            LENCANA KEEFEKTIFAN RELAWAN
+          </h4>
+          
+          <div className="grid grid-cols-1 gap-2.5">
+            {[
+              {
+                id: "respon_cepat",
+                icon: "bolt",
+                title: "Kilat Respon",
+                desc: "Merespon pertolongan warga sekitar dalam waktu <5 menit.",
+                color: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+              },
+              {
+                id: "mitra_siaga",
+                icon: "handshake",
+                title: "Siaga Pratama",
+                desc: "Memiliki profil aktif dan terdaftar di database penolong utama.",
+                color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+              },
+              {
+                id: "pemberantas_hoaks",
+                icon: "shield",
+                title: "Perisai Kebenaran",
+                desc: "Secara proaktif menangani/memverifikasi status sos asli vs palsu.",
+                color: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20"
+              }
+            ].map(badge => {
+              const hasBadge = (profile.badges || []).includes(badge.id);
+              return (
+                <div 
+                  key={badge.id}
+                  className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all ${
+                    hasBadge 
+                      ? 'bg-white dark:bg-zinc-950 border-neutral-200 dark:border-zinc-800 opacity-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)]' 
+                      : 'bg-neutral-50 dark:bg-zinc-950/20 border-neutral-100 dark:border-zinc-900/50 opacity-40 filter grayscale'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${hasBadge ? badge.color : 'bg-neutral-205 dark:bg-zinc-800 text-neutral-400'}`}>
+                    <span className="material-symbols-outlined text-base font-black leading-none">{badge.icon}</span>
+                  </div>
+                  <div className="min-w-0 pr-1 text-left">
+                    <span className="text-[11px] font-black text-neutral-800 dark:text-white uppercase leading-none block">
+                      {badge.title}
+                    </span>
+                    <span className="text-[10px] text-neutral-500 dark:text-zinc-400 font-medium block mt-1 leading-normal">
+                      {badge.desc}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -168,6 +327,38 @@ export default function SettingsView({
               </div>
             </div>
           </li>
+          <li className="border-t border-surface-variant/50 dark:border-zinc-800">
+            <button 
+              onClick={() => handleOpenModal('terms')}
+              className="w-full flex items-center justify-between px-padding-container py-4 hover:bg-surface-container-low dark:hover:bg-zinc-800/80 transition-colors cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-zinc-850 flex items-center justify-center text-on-surface-variant dark:text-zinc-300 border dark:border-zinc-700">
+                  <span className="material-symbols-outlined">gavel</span>
+                </div>
+                <div>
+                  <span className="text-body-md font-extrabold text-on-background dark:text-zinc-200 block">Ketentuan Layanan</span>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-on-surface-variant dark:text-zinc-400">chevron_right</span>
+            </button>
+          </li>
+          <li className="border-t border-surface-variant/50 dark:border-zinc-800">
+            <button 
+              onClick={() => handleOpenModal('privacy')}
+              className="w-full flex items-center justify-between px-padding-container py-4 hover:bg-surface-container-low dark:hover:bg-zinc-800/80 transition-colors cursor-pointer text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-zinc-850 flex items-center justify-center text-on-surface-variant dark:text-zinc-300 border dark:border-zinc-700">
+                  <span className="material-symbols-outlined">policy</span>
+                </div>
+                <div>
+                  <span className="text-body-md font-extrabold text-on-background dark:text-zinc-200 block">Kebijakan Privasi</span>
+                </div>
+              </div>
+              <span className="material-symbols-outlined text-on-surface-variant dark:text-zinc-400">chevron_right</span>
+            </button>
+          </li>
         </ul>
       </section>
 
@@ -207,6 +398,12 @@ export default function SettingsView({
           </div>
         </div>
       )}
+
+      <TermsPrivacyModal 
+        isOpen={modalOpen} 
+        type={modalType} 
+        onClose={() => setModalOpen(false)} 
+      />
     </div>
   );
 }

@@ -3,6 +3,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+@layer base {
+  body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  input, textarea {
+    user-select: auto;
+    -webkit-user-select: auto;
+  }
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
